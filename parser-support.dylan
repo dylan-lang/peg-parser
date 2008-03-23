@@ -20,7 +20,7 @@ define class <parse-failure> (<warning>)
    // "expected:" is required because parent tokens add themselves to
    // parse-expected.
    slot parse-expected :: <string>, required-init-keyword: #"expected";
-   constant slot failure-position = #f, init-keyword: #"position";
+   slot failure-position = #f, init-keyword: #"position";
 end class;
 
 
