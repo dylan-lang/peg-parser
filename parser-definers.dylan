@@ -1,10 +1,21 @@
 module: peg-parser
 synopsis: PEG parser macro definitions.
 
+// See parser-rules.dylan for a full explanation of rule parsers. Basically,
+// rule parsers parse a stream in a given context and return a value or sequence
+// of values called the "product."
 
 /// SYNOPSIS: Defines an arbitrary 'rule parser'.
 /// DISCUSSION: This macro defines a rule parser that includes support for
-/// debugging and other features described for rule parsers.
+/// debugging and other features described for rule parsers. The main part of
+/// the parser is Dylan code supplied by you.
+///
+/// [code]
+/// define parser-method char (stream, context)
+/// => (char :: false-or(<character>))
+///   read-element(stream, on-end-of-stream: #f)
+/// end
+/// [end code]
 define macro parser-method-definer
    {
       define parser-method ?token:name
@@ -22,14 +33,14 @@ define macro parser-method-definer
          block()
             ?body
          afterwards
-            format-trace(?"token" ## " matched chars %x-%x",
+            format-trace(?"token" ## " matched stream pos %x-%x",
                    pos, ?stream.stream-position);
          cleanup
             outdent-trace();
          exception (err :: <parse-failure>)
             ?stream.stream-position := pos;
             indent-trace();
-            format-trace(?"token" ## " no match, exp. %s at char %x",
+            format-trace(?"token" ## " no match, exp. %s at stream pos %x",
                          err.parse-expected, err.failure-position);
             outdent-trace();
             error(err)
@@ -45,7 +56,11 @@ end macro;
 /// SYNOPSIS: Defines a 'rule parser' and perhaps a token class for a given
 /// token.
 ///
-/// The macro takes three forms. A form like
+/// The macro takes three forms: class, yield, and basic.
+/// 
+/// === Class form ===
+///
+/// This form creates a token class.
 ///
 /// [code]
 /// define parser t (<c>)
@@ -60,10 +75,12 @@ end macro;
 /// a slot named `content` (inherited from <c>) and a slot named `more-content`.
 /// When <t-token> is initialized, `tokens` gets set to the product of the rule
 /// `many(t2)`, `content` gets set to the expression `tokens[1]`, and
-/// `more-content` gets set to the expression `tokens[2]`, which must be a
-/// <string>.
+/// `more-content` gets set to the expression `tokens[2]` (which must be a
+/// <string>).
 /// 
-/// A form like 
+/// === Yield form ===
+///
+/// Yield form returns a value.
 ///
 /// [code]
 /// define parser t
@@ -75,7 +92,9 @@ end macro;
 /// defines a rule parser that returns `tokens[1]` directly, without defining
 /// a `<t-token>` class.
 ///
-/// A form like
+/// === Basic form ===
+///
+/// This form returns a token symbol.
 ///
 /// [code]
 /// define parser t
@@ -85,11 +104,13 @@ end macro;
 ///
 /// defines a rule parser that return `#"t"`.
 ///
-/// All three forms allow two additional clauses, "afterwards" and "cleanup",
+/// === Affecting context ===
+///
+/// All three forms allow two additional clauses, "afterwards" and "cleanup,"
 /// that perform actions after the rule parser matches or fails to match.
 ///
 /// [code]
-/// define parser t
+/// define parser t ()
 ///   rule many(t2) => tokens;
 ///   slot t2 = tokens.count
 ///   afterwards (context, tokens)
@@ -106,8 +127,9 @@ end macro;
 /// define parser t
 ///   rule many(t2);
 ///   afterwards (context, tokens)
-///     // The product of this parser is #"t", but "tokens" will be the
-///     // product of many(t2).
+///     // The product of this parser is #"t" because this is a token symbol
+///     // parser, but the local variable 'tokens' will be the product of
+///     // many(t2).
 ///     ...
 /// end parser;
 /// [end code]
@@ -151,7 +173,7 @@ define macro parser-definer
                   "match-" ## ?token-name
                         (context, ?token-name ## "-parser-rule" (stream, context))
                afterwards
-                  format-trace(?"token-name" ## " matched chars %x-%x",
+                  format-trace(?"token-name" ## " matched stream pos %x-%x",
                                pos, stream.stream-position);
                cleanup
                   outdent-trace();
@@ -162,7 +184,7 @@ define macro parser-definer
                   err.parse-expected :=
                         concatenate!(err.parse-expected, " in " ## ?"token-name");
                   indent-trace();
-                  format-trace(?"token-name" ## " no match, exp. %s at char %x",
+                  format-trace(?"token-name" ## " no match, exp. %s at stream pos %x",
                                err.parse-expected, err.failure-position);
                   outdent-trace();
                   error(err)
@@ -204,7 +226,7 @@ define macro parser-definer
                   "match-" ## ?token-name
                         (context, ?token-name ## "-parser-rule" (stream, context))
                afterwards
-                  format-trace(?"token-name" ## " matched chars %x-%x",
+                  format-trace(?"token-name" ## " matched stream pos %x-%x",
                                pos, stream.stream-position);
                cleanup
                   outdent-trace();
@@ -215,7 +237,7 @@ define macro parser-definer
                   err.parse-expected :=
                         concatenate!(err.parse-expected, " in " ## ?"token-name");
                   indent-trace();
-                  format-trace(?"token-name" ## " no match, exp. %s at char %x",
+                  format-trace(?"token-name" ## " no match, exp. %s at stream pos %x",
                          err.parse-expected, err.failure-position);
                   outdent-trace();
                   error(err)
@@ -254,7 +276,7 @@ define macro parser-definer
             "match-" ## ?token-name
                   (context, ?token-name ## "-parser-rule" (stream, context))
          afterwards
-            format-trace(?"token-name" ## " matched chars %x-%x",
+            format-trace(?"token-name" ## " matched stream pos %x-%x",
                          pos, stream.stream-position);
          cleanup
             outdent-trace();
@@ -264,7 +286,7 @@ define macro parser-definer
             unless (err.failure-position) err.failure-position := pos end;
             err.parse-expected :=
                   concatenate!(err.parse-expected, " in " ## ?"token-name");
-            format-trace("  " ## ?"token-name" ## " no match, exp. %s at %x",
+            format-trace("  " ## ?"token-name" ## " no match, exp. %s at stream pos %x",
                          err.parse-expected, err.failure-position);
             error(err)
          end;
@@ -312,7 +334,8 @@ class-slots-and-clauses:
       => { inherited slot ?name = ?expression; ... }
    { ?body-clauses } => { ?body-clauses }
    
-// Optional.
+// Optional. Note that the body is turned into an expression, which is why the
+// 'user-functions' auxiliary macro takes an expression instead of a body.
 body-clauses:
    { afterwards (?context:name, ?product:name) ?:body; ... }
       => { afterwards ?context, ?product, ?body; ... }
@@ -338,7 +361,7 @@ class-slots:
    { inherited slot ?:name = ?:expression; ... }
       => { inherited slot ?name; ... }
       
-   // These are extra baggage to be ignored
+   // These are extra baggage to be ignored.
    { afterwards ?dummy:*; ... } => { ... }
    { cleanup ?dummy:*; ... } => { ... }
    { } => { }
@@ -358,7 +381,7 @@ define macro slot-initializers
                         ?more:*) }
       => { ?token.?slot-name := ?expression; slot-initializers(?token; ?more) }
       
-   // These are extra baggage to be ignored
+   // These are extra baggage to be ignored.
    { slot-initializers (?token:name; afterwards ?dummy:*; ?more:*) }
       => { slot-initializers(?token; ?more) }
    { slot-initializers (?token:name; cleanup ?dummy:*; ?more:*) }
@@ -371,7 +394,7 @@ end macro;
 // This auxiliary macro generates the match- and cleanup- functions.
 define macro user-functions
 
-   // Clean out any slot baggage.
+   // Slot declarations are extra baggage to be ignored.
    { user-functions(?token:name; slot ?dummy:*; ?more:*) }
       => { user-functions(?token; ?more) }
    { user-functions(?token:name; inherited slot ?dummy:*; ?more:*) }

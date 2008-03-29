@@ -8,8 +8,8 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 /// SYNOPSIS: A function that partially parses a stream according to a rule.
 ///
 /// Rule parsers are created by the 'seq', 'choice', 'many', 'opt', 'opt-seq',
-/// 'opt-choice', opt-many', 'req-next', and 'not-next' functions in the
-/// 'parser-definer' macro. They may also be created manually for efficiency
+/// 'opt-choice', opt-many', 'req-next', and 'not-next' functions used in
+/// 'parser-definer' macros. They may also be created manually for efficiency
 /// or to support special behaviors via the 'parser-method-definer' macro.
 ///
 /// Rule parsers must be named "parse-something" to work with the 'parser-definer'
@@ -17,9 +17,9 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 /// after rolling back the position of the stream (so that another parser may 
 /// be tried).
 ///
-/// These things are done automatically (except for signalling <parse-failure>)
-/// when using 'parser-method-definer' or 'parser-definer' macros or the 'seq'
-/// etc. functions.
+/// Rollback and naming are done automatically when using 'parser-method-definer'
+/// or 'parser-definer' macros or the 'seq' etc. functions, but with the
+/// 'parser-method-definer' macro, you have to signal <parse-failure> on failure.
 ///
 /// ARGUMENTS:
 ///   stream   - An instance of <positionable-stream>.
@@ -31,6 +31,7 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching a sequence of elements.
+///           Equivalent to PEG "p1 p2" operation.
 /// ARGUMENTS:
 ///   "#rest sub-rules" - A series of 'rule parser's, all of which must succeed
 ///                       for the returned parser to succeed.
@@ -60,6 +61,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching one of several elements.
+///           Equivalent to PEG "p1 / p2" operation.
 /// ARGUMENTS:
 ///   "#rest sub-rules" - A series of 'rule parser's, the first of which to
 ///                       succeed supplies the parser's product.
@@ -92,6 +94,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching one or more elements.
+///           Equivalent to PEG "p1+" operation.
 /// ARGUMENTS:
 ///   sub-rule - A 'rule parser'.
 /// VALUES:
@@ -122,6 +125,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching zero or one element.
+///           Equivalent to PEG "p1?" operation.
 /// ARGUMENTS:
 ///   sub-rule - A 'rule parser'.
 /// VALUES:
@@ -143,6 +147,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching zero or more elements.
+///           Equivalent to PEG "p1*" operation.
 /// ARGUMENTS:
 ///   sub-rule - A 'rule parser'.
 /// VALUES:
@@ -168,6 +173,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching all elements or none of them.
+///           Equivalent to PEG "(p1 p2)?" operation.
 /// ARGUMENTS:
 ///   "#rest sub-rules" - A series of 'rule parser's, all of which must match
 ///                       for this parser to match.
@@ -184,7 +190,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' matching one of the specified elements or
-/// none of them.
+/// none of them. Equivalent to PEG "(p1 / p2)?" operation.
 /// ARGUMENTS:
 ///   "#rest sub-rules" - A series of 'rule parser's.
 /// VALUES:
@@ -200,7 +206,7 @@ end function;
 
 
 /// SYNOPSIS: Builds a 'rule parser' that looks ahead to match the sub-rule
-/// without consuming any elements.
+/// without consuming any elements. Equivalent to PEG "&p1" operation.
 /// ARGUMENTS:
 ///   sub-rule - A 'rule parser'.
 /// VALUES:
@@ -226,6 +232,7 @@ end function;
 
 /// SYNOPSIS: Builds a 'rule parser' that looks ahead to ensure the sub-rule
 /// does not match, but does not consume any elements in doing so.
+/// Equivalent to PEG "!p1" operation.
 /// ARGUMENTS:
 ///   sub-rule - A 'rule parser'.
 /// VALUES:

@@ -1,5 +1,5 @@
 module: peg-parser
-synopsis: Miscellaneous exports, tracing, and internal support.
+synopsis: The <token> class and miscellaneous exports and internal support.
 
 /// SYNOPSIS: Names of parsers.
 /// DISCUSSION: This is a table of <function> to <string>. Each 'rule parser'
@@ -28,8 +28,8 @@ end class;
 /// DISCUSSION: Subclasses of <token> are created by 'parser-definer', but
 /// tokens do not 'need' [em] to be of this class. Any object may be returned
 /// by a 'rule parser', but the rule parsers created by 'seq', 'choice', etc.
-/// use #f to indicate an optional item not present or a token that doesn't 
-/// consume any characters.
+/// use #f to indicate an optional item not present or a rule that doesn't 
+/// consume any characters (i.e. all look-ahead rules).
 define open abstract class <token> (<object>)
    constant slot parse-start, required-init-keyword: #"start";
    constant slot parse-end, required-init-keyword: #"end";
