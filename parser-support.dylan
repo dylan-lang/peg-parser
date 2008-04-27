@@ -37,6 +37,9 @@ end class;
 
 
 /// SYNOPSIS: Builds and caches a parser name, for debugging and exceptions.
+/// DISCUSSION: This whole system I've devised for parser names does not work
+/// when it comes to the parsers created by 'seq', etc. I have no idea why,
+/// but they all show up as "?".
 define function rule-name (rule-func :: <function>) => (name :: <string>)
    if (~member?(rule-func, *rule-names*))
       let parts = element(*rule-name-parts*, rule-func, default: #("?"));
@@ -88,20 +91,24 @@ end function;
 /// : #[1, "blue"]
 ///
 /// ARGUMENTS:
-///   sequences   - A collection of <sequence>.
+///   sequences   - A collection of <sequence>, or #f.
 ///   index       - An <integer>. The element of each of 'sequences' that should
-///                 be pulled out into a new resulting sequence.
+///                 be pulled out into a new sequence.
 ///   default:    - An <object>. If the sequence doesn't have an element at
 ///                 'index', this value is used instead. Defaults to #f.
 /// VALUES:
-///   new-sequence - The resulting sequence.
+///   new-sequence - The resulting sequence. It is empty if 'sequences' is #f.
 define function collect-subelements
-   (sequences :: <collection>, index :: <integer>, #key default = #f)
+   (sequences :: false-or(<collection>), index :: <integer>, #key default = #f)
 => (new-sequence :: <sequence>)
-   map-as(<deque>,
-          method (sequence :: <sequence>) => (item :: <object>)
-             element(sequence, index, default: default)
-          end,
-          sequences)
+   if (sequences)
+      map-as(<deque>,
+             method (sequence :: <sequence>) => (item :: <object>)
+                element(sequence, index, default: default)
+             end,
+             sequences)
+   else
+      #()
+   end if
 end function;
 

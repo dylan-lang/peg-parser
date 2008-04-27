@@ -5,7 +5,7 @@ synopsis: PEG parser macro definitions.
 // rule parsers parse a stream in a given context and return a value or sequence
 // of values called the "product."
 
-/// SYNOPSIS: Defines an arbitrary 'rule parser'.
+/// SYNOPSIS: Defines an arbitrary rule parser.
 /// DISCUSSION: This macro defines a rule parser that includes support for
 /// debugging and other features described for rule parsers. The main part of
 /// the parser is Dylan code supplied by you.
@@ -53,7 +53,7 @@ define macro parser-method-definer
 end macro;
 
 
-/// SYNOPSIS: Defines a 'rule parser' and perhaps a token class for a given
+/// SYNOPSIS: Defines a rule parser and perhaps a token class for a given
 /// token.
 ///
 /// The macro takes three forms: class, yield, and basic.
@@ -70,27 +70,28 @@ end macro;
 /// end parser;
 /// [end code]
 ///
-/// defines a rule parser named `parse-t` and a token class named `<t-token>`
-/// which inherits from `<c>` (optional) and `<token>`. `<t-token>` will have
-/// a slot named `content` (inherited from <c>) and a slot named `more-content`.
-/// When <t-token> is initialized, `tokens` gets set to the product of the rule
-/// `many(t2)`, `content` gets set to the expression `tokens[1]`, and
-/// `more-content` gets set to the expression `tokens[2]` (which must be a
-/// <string>).
+/// defines a rule parser named parse-t and a token class named <t-token>
+/// which inherits from <c> and <token>. The superclass is optional, but the
+/// parentheses aren't. <t-token> will have a slot named content (inherited
+/// from <c>) and a slot named more-content. When <t-token> is initialized,
+/// tokens gets set to the product of the rule `many(t2)`, content gets set to
+/// the expression `tokens[1]`, and more-content gets set to the expression
+/// `tokens[2]` (which must be a <string>).
 /// 
 /// === Yield form ===
 ///
 /// Yield form returns a value.
 ///
 /// [code]
-/// define parser t
+/// define parser t :: <token>
 ///   rule many(t2) => tokens;
 ///   yield tokens[1];
 /// end parser;
 /// [end code]
 ///
-/// defines a rule parser that returns `tokens[1]` directly, without defining
-/// a `<t-token>` class.
+/// defines a rule parser that returns `tokens[1]` (which must be a <token>)
+/// directly, without defining a <t-token> class. The type specialization is
+/// optional.
 ///
 /// === Basic form ===
 ///
@@ -102,12 +103,13 @@ end macro;
 /// end parser;
 /// [end code]
 ///
-/// defines a rule parser that return `#"t"`.
+/// defines a rule parser that returns #"t".
 ///
 /// === Affecting context ===
 ///
 /// All three forms allow two additional clauses, "afterwards" and "cleanup,"
-/// that perform actions after the rule parser matches or fails to match.
+/// that perform actions after the rule parser matches or fails to match. These
+/// actions are inherited by token subclasses.
 ///
 /// [code]
 /// define parser t ()
@@ -140,7 +142,7 @@ define macro parser-definer
    // This form creates a parser that return an initialized <token> class.
    {
       define parser ?token-name:name (?supers)
-         rule ?rule => ?product-name:name;
+         rule ?rule => ?product-name:name :: ?product-type:expression;
          ?class-slots-and-clauses
       end
    } => {
@@ -149,7 +151,9 @@ define macro parser-definer
       
       // Initialize the class's slots based on results of rule.
       define method initialize (?token-name :: "<" ## ?token-name ## "-token>",
-            #next next-method, #key ?product-name = unsupplied())
+            #next next-method,
+            #key ?product-name :: type-union(?product-type, singleton(unsupplied()))
+                 = unsupplied())
          next-method();
          if (supplied?(?product-name))
             slot-initializers(?token-name; ?class-slots-and-clauses)
@@ -167,7 +171,7 @@ define macro parser-definer
          indent-trace();
          format-trace(?"token-name" ## "...");
          let pos = stream.stream-position;
-         let production =
+         let production :: ?product-type =
                block()
                   // User-defined match action on rule product
                   "match-" ## ?token-name
@@ -204,8 +208,8 @@ define macro parser-definer
    //
    // This form creates a parser that returns the result of an expression.
    {
-      define parser ?token-name:name
-         rule ?rule => ?product-name:name;
+      define parser ?token-name:name :: ?token-type:expression
+         rule ?rule => ?product-name:name :: ?product-type:expression;
          yield ?:expression;
          ?body-clauses
       end
@@ -216,11 +220,11 @@ define macro parser-definer
       // Define the parser function including tracing and rollback. Result is
       // yield expression.
       define function "parse-" ## ?token-name
-            (stream :: <positionable-stream>, context) => (token)
+            (stream :: <positionable-stream>, context) => (token :: ?token-type)
          indent-trace();
          format-trace(?"token-name" ## "...");
          let pos = stream.stream-position;
-         let ?product-name =
+         let ?product-name :: ?product-type =
                block()
                   // User-defined match action on rule product
                   "match-" ## ?token-name
@@ -337,9 +341,9 @@ class-slots-and-clauses:
 // Optional. Note that the body is turned into an expression, which is why the
 // 'user-functions' auxiliary macro takes an expression instead of a body.
 body-clauses:
-   { afterwards (?context:name, ?product:name) ?:body; ... }
+   { afterwards (?context:variable, ?product:variable) ?:body ... }
       => { afterwards ?context, ?product, ?body; ... }
-   { cleanup (?context:name) ?:body }
+   { cleanup (?context:variable) ?:body }
       => { cleanup ?context, ?body }
    { } => { }
 end macro;
@@ -402,36 +406,46 @@ define macro user-functions
 
    {
       user-functions(?token:name;
-            afterwards ?after-ctxt:name, ?after-prod:name, ?after-expr:expression;
-            cleanup ?clean-ctxt:name, ?clean-expr:expression)
+            afterwards ?after-ctxt:name :: ?after-ctxt-type:expression,
+                       ?after-prod:name :: ?after-ctxt-type:expression,
+                       ?after-expr:expression;
+            cleanup ?clean-ctxt:name :: ?clean-ctxt-type:expression,
+                    ?clean-expr:expression)
    } => {
-      define inline function "match-" ## ?token (?after-ctxt, ?after-prod)
-      => (p)
+      define inline function "match-" ## ?token
+         (?after-ctxt :: ?after-ctxt-type, ?after-prod :: ?after-prod-type)
+      => (p :: ?after-prod-type)
          ?after-expr; ?after-prod;
       end function;
-      define inline function "cleanup-" ## ?token (?clean-ctxt) => ()
+      define inline function "cleanup-" ## ?token
+            (?clean-ctxt :: ?clean-ctxt-type) => ()
          ?clean-expr
       end function;
    }
    
    {
       user-functions(?token:name;
-            cleanup ?clean-ctxt:name, ?clean-expr:expression)
+            cleanup ?clean-ctxt:name :: ?clean-ctxt-type:expression,
+                    ?clean-expr:expression)
    } => {
       define inline function "match-" ## ?token (c, p) => (p)
          p
       end function;
-      define inline function "cleanup-" ## ?token (?clean-ctxt) => ()
+      define inline function "cleanup-" ## ?token
+            (?clean-ctxt :: ?clean-ctxt-type) => ()
          ?clean-expr
       end function;
    }
    
    {
       user-functions(?token:name;
-            afterwards ?after-ctxt:name, ?after-prod:name, ?after-expr:expression)
+            afterwards ?after-ctxt:name :: ?after-ctxt-type:expression,
+                       ?after-prod:name :: ?after-prod-type:expression,
+                       ?after-expr:expression)
    } => {
-      define inline function "match-" ## ?token (?after-ctxt, ?after-prod)
-      => (p)
+      define inline function "match-" ## ?token
+         (?after-ctxt :: ?after-ctxt-type, ?after-prod :: ?after-prod-type)
+      => (p :: ?after-prod-type)
          ?after-expr; ?after-prod
       end function;
       define inline function "cleanup-" ## ?token (c) => ()

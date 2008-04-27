@@ -19,7 +19,7 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 ///
 /// Rollback and naming are done automatically when using 'parser-method-definer'
 /// or 'parser-definer' macros or the 'seq' etc. functions, but with the
-/// 'parser-method-definer' macro, you have to signal <parse-failure> on failure.
+/// 'parser-method-definer' macro, you have to signal <parse-failure> yourself.
 ///
 /// ARGUMENTS:
 ///   stream   - An instance of <positionable-stream>.
@@ -27,16 +27,17 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 /// VALUES:
 ///   product  - An instance of <sequence>, #f, or some other value (usually
 ///              an instance of <token>), depending on the parser's rule(s).
-///              If the parser fails to match, it signals <parse-failure>.
+/// CONDITIONS:
+///   If the parser fails to match, it signals <parse-failure>.
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching a sequence of elements.
+/// SYNOPSIS: Builds a rule parser matching a sequence of elements.
 ///           Equivalent to PEG "p1 p2" operation.
 /// ARGUMENTS:
-///   "#rest sub-rules" - A series of 'rule parser's, all of which must succeed
+///   "#rest sub-rules" - A series of rule parsers, all of which must succeed
 ///                       for the returned parser to succeed.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning a <sequence>. The sequence will
+///   rule-parser - A rule parser returning a <sequence>. The sequence will
 ///                 contain the sub-rules' products.
 define function seq (#rest sub-rules) => (rule-parser :: <function>)
    local method seq-parser (stream :: <positionable-stream>, context)
@@ -60,13 +61,13 @@ define function seq (#rest sub-rules) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching one of several elements.
+/// SYNOPSIS: Builds a rule parser matching one of several elements.
 ///           Equivalent to PEG "p1 / p2" operation.
 /// ARGUMENTS:
-///   "#rest sub-rules" - A series of 'rule parser's, the first of which to
+///   "#rest sub-rules" - A series of rule parsers, the first of which to
 ///                       succeed supplies the parser's product.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning one of the sub-rules' products.
+///   rule-parser - A rule parser returning one of the sub-rules' products.
 define function choice (#rest sub-rules) => (rule-parser :: <function>)
    local method choice-parser (stream :: <positionable-stream>, context)
    => (product)
@@ -93,12 +94,12 @@ define function choice (#rest sub-rules) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching one or more elements.
+/// SYNOPSIS: Builds a rule parser matching one or more elements.
 ///           Equivalent to PEG "p1+" operation.
 /// ARGUMENTS:
-///   sub-rule - A 'rule parser'.
+///   sub-rule - A rule parser.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning a <sequence> containing the
+///   rule-parser - A rule parser returning a <sequence> containing the
 ///                 sub-rule's products. 
 define function many (sub-rule :: <function>) => (rule-parser :: <function>)
    local method many-parser (stream :: <positionable-stream>, context)
@@ -124,12 +125,12 @@ define function many (sub-rule :: <function>) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching zero or one element.
+/// SYNOPSIS: Builds a rule parser matching zero or one element.
 ///           Equivalent to PEG "p1?" operation.
 /// ARGUMENTS:
-///   sub-rule - A 'rule parser'.
+///   sub-rule - A rule parser.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning the sub-rule's product, or #f if
+///   rule-parser - A rule parser returning the sub-rule's product, or #f if
 ///                 the element is not present.
 define function opt (sub-rule :: <function>) => (rule-parser :: <function>)
    local method opt-parser (stream :: <positionable-stream>, context)
@@ -146,12 +147,12 @@ define function opt (sub-rule :: <function>) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching zero or more elements.
+/// SYNOPSIS: Builds a rule parser matching zero or more elements.
 ///           Equivalent to PEG "p1*" operation.
 /// ARGUMENTS:
-///   sub-rule - A 'rule parser'.
+///   sub-rule - A rule parser.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning a <sequence> containing the
+///   rule-parser - A rule parser returning a <sequence> containing the
 ///                 sub-rule's products, or #f if the elements are not present. 
 define function opt-many (sub-rule :: <function>) => (rule-parser :: <function>)
    local method opt-many-parser (stream :: <positionable-stream>, context)
@@ -172,13 +173,13 @@ define function opt-many (sub-rule :: <function>) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching all elements or none of them.
+/// SYNOPSIS: Builds a rule parser matching all elements or none of them.
 ///           Equivalent to PEG "(p1 p2)?" operation.
 /// ARGUMENTS:
-///   "#rest sub-rules" - A series of 'rule parser's, all of which must match
+///   "#rest sub-rules" - A series of rule parsers, all of which must match
 ///                       for this parser to match.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning #f or a <sequence> containing
+///   rule-parser - A rule parser returning #f or a <sequence> containing
 ///                 all sub-rules' products.
 define function opt-seq (#rest sub-rules) => (rule-parser :: <function>)
    let parser = opt(apply(seq, sub-rules));
@@ -189,12 +190,12 @@ define function opt-seq (#rest sub-rules) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' matching one of the specified elements or
+/// SYNOPSIS: Builds a rule parser matching one of the specified elements or
 /// none of them. Equivalent to PEG "(p1 / p2)?" operation.
 /// ARGUMENTS:
-///   "#rest sub-rules" - A series of 'rule parser's.
+///   "#rest sub-rules" - A series of rule parsers.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning #f or the product of the
+///   rule-parser - A rule parser returning #f or the product of the
 ///                 matching rule.
 define function opt-choice (#rest sub-rules) => (rule-parser :: <function>)
    let parser = opt(apply(choice, sub-rules));
@@ -205,12 +206,12 @@ define function opt-choice (#rest sub-rules) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' that looks ahead to match the sub-rule
+/// SYNOPSIS: Builds a rule parser that looks ahead to match the sub-rule
 /// without consuming any elements. Equivalent to PEG "&p1" operation.
 /// ARGUMENTS:
-///   sub-rule - A 'rule parser'.
+///   sub-rule - A rule parser.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning #f.
+///   rule-parser - A rule parser returning #f.
 define function req-next (sub-rule :: <function>) => (rule-parser :: <function>)
    local method req-next-parser (stream :: <positionable-stream>, context)
    => (product :: <boolean>)
@@ -230,13 +231,13 @@ define function req-next (sub-rule :: <function>) => (rule-parser :: <function>)
 end function;
 
 
-/// SYNOPSIS: Builds a 'rule parser' that looks ahead to ensure the sub-rule
+/// SYNOPSIS: Builds a rule parser that looks ahead to ensure the sub-rule
 /// does not match, but does not consume any elements in doing so.
 /// Equivalent to PEG "!p1" operation.
 /// ARGUMENTS:
-///   sub-rule - A 'rule parser'.
+///   sub-rule - A rule parser.
 /// VALUES:
-///   rule-parser - A 'rule parser' returning #f.
+///   rule-parser - A rule parser returning #f.
 define function not-next (sub-rule :: <function>) => (rule-parser :: <function>)
    local method not-next-parser (stream :: <positionable-stream>, context)
    => (product :: <boolean>)
