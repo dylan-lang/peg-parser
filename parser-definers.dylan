@@ -407,7 +407,7 @@ define macro user-functions
    {
       user-functions(?token:name;
             afterwards ?after-ctxt:name :: ?after-ctxt-type:expression,
-                       ?after-prod:name :: ?after-ctxt-type:expression,
+                       ?after-prod:name :: ?after-prod-type:expression,
                        ?after-expr:expression;
             cleanup ?clean-ctxt:name :: ?clean-ctxt-type:expression,
                     ?clean-expr:expression)
