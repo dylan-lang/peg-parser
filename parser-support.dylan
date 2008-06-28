@@ -20,7 +20,9 @@ define class <parse-failure> (<warning>)
    // "expected:" is required because parent tokens add themselves to
    // parse-expected.
    slot parse-expected :: <string>, required-init-keyword: #"expected";
-   slot failure-position = #f, init-keyword: #"position";
+   slot failure-position
+      :: false-or(type-union(<integer>, <stream-position>)) = #f,
+      init-keyword: #"position";
 end class;
 
 
@@ -31,8 +33,10 @@ end class;
 /// use #f to indicate an optional item not present or a rule that doesn't 
 /// consume any characters (i.e. all look-ahead rules).
 define open abstract class <token> (<object>)
-   constant slot parse-start, required-init-keyword: #"start";
-   constant slot parse-end, required-init-keyword: #"end";
+   constant slot parse-start :: type-union(<integer>, <stream-position>),
+      required-init-keyword: #"start";
+   constant slot parse-end :: type-union(<integer>, <stream-position>),
+      required-init-keyword: #"end";
 end class;
 
 
