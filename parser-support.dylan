@@ -1,29 +1,106 @@
 module: peg-parser
 synopsis: The <token> class and miscellaneous exports and internal support.
 
-/// SYNOPSIS: Names of parsers.
-/// DISCUSSION: This is a table of <function> to <string>. Each 'rule parser'
-/// should have a corresponding <string>. This string will be used in exceptions
-/// and logging. If no string is provided for a rule parser, defaults to "?".
-define constant *rule-names* = make(<table>);
 
-
-/// A table keyed by rule parser function and containing a format string and
-/// arguments. Each argument is a parser function. 'initialize-parser' finds
-/// the name of each parser argument and substitutes it into the format string.
-/// The result is the name of the keying parser function.
-define constant *rule-name-parts* = make(<table>);
-
-
-/// SYNOPSIS: Signalled when parsing fails. Non-recoverable.
+/// SYNOPSIS: Indicates why a parser did not parse further than it did.
+/// DISCUSSION: See 'rule parser' for more information. This is a subclass of
+/// <warning>, but is not signaled by the PEG parser library.
 define class <parse-failure> (<warning>)
-   // "expected:" is required because parent tokens add themselves to
-   // parse-expected.
-   slot parse-expected :: <string>, required-init-keyword: #"expected";
+   /// A list of <string>. Descriptions of what parser expected at
+   /// 'failure-position'.
+   slot parse-expected-list :: <list> = #(),
+      init-keyword: #"expected-list";
+   /// As 'parse-expected-list', but what the parser did not expect at
+   /// 'failure-position'.
+   slot parse-expected-other-than-list :: <list> = #(),
+      init-keyword: #"expected-other-than-list";
+   /// An instance of <integer> or <stream-position>.
    slot failure-position
       :: false-or(type-union(<integer>, <stream-position>)) = #f,
       init-keyword: #"position";
+   keyword #"expected", type: <string>;
+   keyword #"expected-other-than", type: <string>;
 end class;
+
+
+define method initialize
+   (obj :: <parse-failure>,
+    #key expected :: false-or(<string>) = #f,
+         expected-other-than :: false-or(<string>) = #f,
+         expected-list, expected-other-than-list)
+=> ()
+   next-method();
+   if (expected)
+      obj.parse-expected-list :=
+            add-new!(obj.parse-expected-list, expected, test: \=);
+   end if;
+   if (expected-other-than)
+      obj.parse-expected-other-than-list :=
+            add-new!(obj.parse-expected-other-than-list, expected-other-than,
+                     test: \=);
+   end if;
+end method;
+
+
+define method empty-description? (err :: <parse-failure>) => (empty? :: <boolean>)
+   err.parse-expected-list.empty? & err.parse-expected-other-than-list.empty?
+end method;
+
+
+/// SYNOPSIS: Printable version of 'parse-expected-list' and
+/// 'parse-expected-other-than-list'.
+define method parse-expected (err :: <parse-failure>) => (string :: <string>)
+   let exp = "";
+   unless (err.parse-expected-list.empty?)
+      exp := reduce(method (a, b) concatenate(a, " or ", b) end,
+                    err.parse-expected-list.first,
+                    err.parse-expected-list.tail);
+   end unless;
+   let unexp = "";
+   unless (err.parse-expected-other-than-list.empty?)
+      unexp := reduce(method (a, b) concatenate(a, " or ", b) end,
+                      err.parse-expected-other-than-list.first,
+                      err.parse-expected-other-than-list.tail);
+   end unless;
+   case
+      ~exp.empty? & ~unexp.empty? =>
+         concatenate(exp, " and not ", unexp);
+      exp.empty? & ~unexp.empty? =>
+         concatenate("other than ", unexp);
+      exp.empty? & unexp.empty? =>
+         "?";
+      otherwise =>
+         exp;
+   end case;
+end method;
+
+
+/// SYNOPSIS: Merges two <parse-failure>s into one. The rightmost of the two
+/// is assumed to be the more relevant.
+/// DISCUSSION: If you write a manual parser that calls other parser functions,
+/// use this function to combine all the <parse-failure>s returned by those
+/// functions.
+define method combine-errors
+   (a :: false-or(<parse-failure>), b :: false-or(<parse-failure>))
+=> (combined-error :: false-or(<parse-failure>))
+   case
+      ~a => b;
+      ~b => a;
+      a.failure-position > b.failure-position => a;
+      b.failure-position > a.failure-position => b;
+      otherwise =>
+         // Combine them, removing duplicates.
+         for (exp in b.parse-expected-list)
+            a.parse-expected-list :=
+                  add-new!(a.parse-expected-list, exp, test: \=);
+         end for;
+         for (exp in b.parse-expected-other-than-list)
+            a.parse-expected-other-than-list :=
+                  add-new!(a.parse-expected-other-than-list, exp, test: \=);
+         end for;
+         a;
+   end case;
+end method;
 
 
 /// SYNOPSIS: A token, a class containing information parsed from a stream.
@@ -38,22 +115,6 @@ define open abstract class <token> (<object>)
    constant slot parse-end :: type-union(<integer>, <stream-position>),
       required-init-keyword: #"end";
 end class;
-
-
-/// SYNOPSIS: Builds and caches a parser name, for debugging and exceptions.
-/// DISCUSSION: This whole system I've devised for parser names does not work
-/// when it comes to the parsers created by 'seq', etc. I have no idea why,
-/// but they all show up as "?".
-define function rule-name (rule-func :: <function>) => (name :: <string>)
-   if (~member?(rule-func, *rule-names*))
-      let parts = element(*rule-name-parts*, rule-func, default: #("?"));
-      let format-string = parts.first;
-      let rule-parameters = copy-sequence(parts, start: 1);
-      *rule-names*[rule-func] :=
-            apply(format-to-string, format-string, map(rule-name, rule-parameters));
-   end if;
-   *rule-names*[rule-func]
-end function;
 
 
 /// SYNOPSIS: Control of parser debugging output.
@@ -115,4 +176,3 @@ define function collect-subelements
       #()
    end if
 end function;
-

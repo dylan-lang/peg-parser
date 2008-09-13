@@ -30,9 +30,9 @@ THINGS TO IMPROVE
 
     130        for "verb" + context A: no match
                for "verb" + context B: no match
-               for "article" + context C: matched, result "the"
+               for "article" + context C: matched 3, result "the"
                for "article" + context B: no match
-               for "sentence" + context C: matched, result "the dog bit me"
+               for "sentence" + context C: matched 14, result "the dog bit me"
                
     131        ...
 
@@ -50,5 +50,5 @@ THINGS TO IMPROVE
   Cache-hit testing would happen in the parse-xxx functions, and perhaps the
   updating of *cache-start-position* and discarding of old data would too.
 
-* Soft error recovery. Right now, the parser just gives up at the first thing
-  it can't match. I'm not sure what it should do, but it doesn't do it.
+* Soft error recovery. Right now, the parser just gives up when it can't
+  match. I'd like the parser to be capable of skipping to a checkpoint.
