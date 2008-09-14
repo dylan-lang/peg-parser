@@ -481,20 +481,34 @@ define macro parser-body
                   ?stream:name, ?context:name, ?pos:name,
                   ?prod:name, ?succ:name, ?err:name)
    } => {
-      // Replace or fill in missing error description.
-      if (?err & "$" ## ?token-name ## "-parser-label")
-         if (?err.failure-position = ?pos)
-            ?err.parse-expected-list := list("$" ## ?token-name ## "-parser-label");
+      let parser-label = "$" ## ?token-name ## "-parser-label";
+
+      // Call user-defined afterwards clause, which may cause failure.
+      let after-error :: false-or(<parse-failure>) =
+            if (?succ) "match-" ## ?token-name (?context, ?prod) end;
+      if (after-error)
+         after-error.failure-position := after-error.failure-position | ?pos;
+         if (after-error.empty-description?)
+            after-error.parse-expected-list :=
+                  list(format-to-string("valid %s", parser-label | "input"));
+         end if;
+         ?succ := #f;
+         ?err := after-error;
+      end if;
+      
+      // Consolidate lower level error descriptions into a better description for
+      // this parser. Better description is either parser label or after-error
+      // (the latter of which will already be in ?err). If no better description,
+      // leave ?err alone.
+      if (~?succ & ?err.failure-position = ?pos)
+         if (parser-label & ~after-error)
+            ?err.parse-expected-list := list(parser-label);
             ?err.parse-expected-other-than-list := #();
          end if;
-         if (?err.empty-description?)
-            let msg = format-to-string("error in %s",
-                                       "$" ## ?token-name ## "-parser-label");
-            ?err.parse-expected-other-than-list := list(msg);
-         end if;
       end if;
+      
+      // Log results of parsing.
       if (?succ)
-         "match-" ## ?token-name (?context, ?prod);
          format-trace(?"token-name" ## " matched stream pos %x-%x",
                       ?pos, ?stream.stream-position);
       else
@@ -502,6 +516,8 @@ define macro parser-body
                       ?err.parse-expected, ?err.failure-position);
       end if;
       outdent-trace();
+
+      // Call user-defined cleanup clause.
       "cleanup-" ## ?token-name (?context);
    }
 end macro;
@@ -575,8 +591,8 @@ define macro user-functions
    } => {
       define inline function "match-" ## ?token
          (?after-ctxt :: ?after-ctxt-type, ?after-prod :: ?after-prod-type)
-      => (p :: ?after-prod-type)
-         ?after-expr; ?after-prod;
+      => (new-err :: false-or(<parse-failure>))
+         ?after-expr
       end function;
       define inline function "cleanup-" ## ?token
             (?clean-ctxt :: ?clean-ctxt-type) => ()
@@ -589,8 +605,8 @@ define macro user-functions
             cleanup ?clean-ctxt:name :: ?clean-ctxt-type:expression,
                     ?clean-expr:expression)
    } => {
-      define inline function "match-" ## ?token (c, p) => (p)
-         p
+      define inline function "match-" ## ?token (c, p) => (e :: singleton(#f))
+         #f
       end function;
       define inline function "cleanup-" ## ?token
             (?clean-ctxt :: ?clean-ctxt-type) => ()
@@ -606,8 +622,8 @@ define macro user-functions
    } => {
       define inline function "match-" ## ?token
          (?after-ctxt :: ?after-ctxt-type, ?after-prod :: ?after-prod-type)
-      => (p :: ?after-prod-type)
-         ?after-expr; ?after-prod
+      => (new-err :: false-or(<parse-failure>))
+         ?after-expr
       end function;
       define inline function "cleanup-" ## ?token (c) => ()
       end function;
@@ -616,8 +632,8 @@ define macro user-functions
    {
       user-functions(?token:name)
    } => {
-      define inline function "match-" ## ?token (c, p) => (p)
-         p
+      define inline function "match-" ## ?token (c, p) => (e :: singleton(#f))
+         #f
       end function;
       define inline function "cleanup-" ## ?token (c) => ()
       end function;
