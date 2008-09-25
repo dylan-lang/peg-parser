@@ -1,5 +1,44 @@
 module: peg-parser
-synopsis: The <token> class and miscellaneous exports and internal support.
+synopsis: The <token> and <parse-context> classes and misc. exports and support.
+
+
+/// SYNOPSIS: Parsing context.
+define open class <parse-context> (<object>)
+   slot cache :: <vector>;
+   /// A table keyed by production name containing the number of cache hits.
+   constant slot parser-cache-hits = make(<table>);
+   required keyword #"stream", type: <positionable-stream>;
+end class;
+
+define method initialize (obj :: <parse-context>, #key stream) => ()
+   next-method();
+   obj.cache := make(<vector>, size: stream.stream-size + 1);
+end method;
+
+
+/// SYNOPSIS: Determine whether cache hits are tracked.
+/// DISCUSSION: The only parse results worth caching are those with the most hits.
+/// Make all parsers cached, then run through a few sample files and take a look
+/// at the results to decide which ones to keep cached.
+define variable *parser-cache-hits* :: <boolean> = #f;
+
+
+/// SYNOPSIS: Clears parsing cache.
+/// DISCUSSION: Call this after a parse-affecting context change (i.e. a change
+/// that would cause a production to be parsed differently).
+define method invalidate-parser-cache (context :: <parse-context>) => ()
+   fill!(context.cache, #f);
+end method;
+
+
+/// SYNOPSIS: Element of parse results cache.
+define class <parse-result> (<object>)
+   constant slot semantic-value :: <object>, required-init-keyword: #"value";
+   constant slot success-pos :: false-or(type-union(<integer>, <stream-position>)),
+      required-init-keyword: #"success-pos";
+   constant slot parse-failure :: false-or(<parse-failure>),
+      required-init-keyword: #"failure";
+end class;
 
 
 /// SYNOPSIS: Indicates why a parser did not parse further than it did.

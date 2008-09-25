@@ -17,11 +17,20 @@ define module peg-parser
    use standard-io;
 
    export
+      <parse-context>, parser-cache-hits, invalidate-parser-cache,
+      *parser-cache-hits*;
+      
+   export
       parser-definer, parser-method-definer,
       <parse-failure>, parse-expected, combine-errors, failure-position,
       parse-expected-list, parse-expected-other-than-list,
-      <token>, parse-start, parse-end,
-      seq, choice, many, opt, opt-seq, opt-choice, opt-many, req-next, not-next,
+      <token>, parse-start, parse-end;
+   
+   export
+      seq, choice, many, opt, req-next, not-next, nil,
+      opt-seq, opt-choice, opt-many;
+
+   export
       collect-subelements, *parser-trace*;
    
    // This is only exported because of a bug in Gwydion Dylan (#7392).
@@ -34,5 +43,7 @@ define module peg-parser-client
    use peg-parser, export:
       { <parse-failure>, failure-position,
         parse-expected, parse-expected-list, parse-expected-other-than-list,
-        <token>, parse-start, parse-end, *parser-trace* }
+        <token>, parse-start, parse-end,
+        <parse-context>, parser-cache-hits, invalidate-parser-cache,
+        *parser-cache-hits*, *parser-trace* }
 end module;

@@ -8,7 +8,7 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 /// SYNOPSIS: A function that partially parses a stream according to a rule.
 ///
 /// Rule parsers are created by the 'seq', 'choice', 'many', 'opt', 'opt-seq',
-/// 'opt-choice', opt-many', 'req-next', and 'not-next' functions used in
+/// 'opt-choice', opt-many', 'req-next', 'not-next', and 'nil' functions used in
 /// 'parser-definer' macros. They may also be created manually for efficiency
 /// or to support special behaviors via the 'parser-method-definer' macro.
 ///
@@ -55,7 +55,8 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 ///   rule-parser - A rule parser returning a <sequence>. The sequence will
 ///                 contain the sub-rules' products.
 define function seq (#rest sub-rules) => (rule-parser :: <function>)
-   local method parse-seq (stream :: <positionable-stream>, context)
+   local method parse-seq
+      (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: false-or(<sequence>),
        success? :: <boolean>, error :: false-or(<parse-failure>))
       let pos = stream.stream-position;
@@ -89,7 +90,8 @@ end function;
 /// VALUES:
 ///   rule-parser - A rule parser returning one of the sub-rules' products.
 define function choice (#rest sub-rules) => (rule-parser :: <function>)
-   local method parse-choice (stream :: <positionable-stream>, context)
+   local method parse-choice
+      (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: false-or(<object>),
        success? :: <boolean>, error :: false-or(<parse-failure>))
       let pos = stream.stream-position;
@@ -123,7 +125,8 @@ end function;
 ///   rule-parser - A rule parser returning a <sequence> containing the
 ///                 sub-rule's products. 
 define function many (sub-rule :: <function>) => (rule-parser :: <function>)
-   local method parse-many (stream :: <positionable-stream>, context)
+   local method parse-many
+      (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: false-or(<sequence>),
        success? :: <boolean>, error :: false-or(<parse-failure>))
       let pos = stream.stream-position;
@@ -158,7 +161,8 @@ end function;
 ///   rule-parser - A rule parser returning the sub-rule's product, or #f if
 ///                 the element is not present.
 define function opt (sub-rule :: <function>) => (rule-parser :: <function>)
-   local method parse-opt (stream :: <positionable-stream>, context)
+   local method parse-opt
+      (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: false-or(<object>),
        success? :: singleton(#t), error :: false-or(<parse-failure>))
       let (prod, succ?, err) = sub-rule(stream, context);
@@ -212,11 +216,15 @@ end function;
 /// VALUES:
 ///   rule-parser - A rule parser returning #f.
 define function req-next (sub-rule :: <function>) => (rule-parser :: <function>)
-   local method parse-req-next (stream :: <positionable-stream>, context)
+   local method parse-req-next
+      (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: singleton(#f),
        success? :: <boolean>, error :: false-or(<parse-failure>))
       let pos = stream.stream-position;
       let (prod, succ?, err) = sub-rule(stream, context);
+      if (~succ?)
+         err := combine-errors(err, make(<parse-failure>, position: pos));
+      end if;
       stream.stream-position := pos;
       values(#f, succ?, err)
    end method;
@@ -232,13 +240,35 @@ end function;
 /// VALUES:
 ///   rule-parser - A rule parser returning #f.
 define function not-next (sub-rule :: <function>) => (rule-parser :: <function>)
-   local method parse-not-next (stream :: <positionable-stream>, context)
+   local method parse-not-next
+      (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: singleton(#f),
        success? :: <boolean>, error :: false-or(<parse-failure>))
       let pos = stream.stream-position;
       let (prod, succ?, err) = sub-rule(stream, context);
+      if (succ?)
+         err := combine-errors(err, make(<parse-failure>, position: pos));
+      end if;
       stream.stream-position := pos;
       values(#f, ~succ?, err)
    end method;
    parse-not-next
+end function;
+
+
+/// SYNOPSIS: Builds a rule parser that does not consume any input and always
+/// succeeds, returning a constant semantic value. Useful for distinguishing
+/// and aligning parallel token sequences.
+/// ARGUMENTS:
+///   product - An instance of <object>.
+/// VALUES:
+///   rule-parser - A rule parser returning 'product'.
+define function nil (product :: <object>) => (rule-parser :: <function>)
+   local method parse-nil
+      (stream, context :: <parse-context>)
+   => (product :: <object>,
+       success? :: singleton(#t), error :: singleton(#f))
+      values(product, #t, #f)
+   end method;
+   parse-nil
 end function;

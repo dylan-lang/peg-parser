@@ -211,6 +211,17 @@ end macro;
 ///     ...
 /// end parser;
 /// [end code]
+///
+/// === Caching ===
+///
+/// All three forms allow "caching" as a modifier, i.e. "define caching parser."
+/// It is better, performance-wise, to only cache certain important productions.
+/// The cache is kept in the <parse-context> instance. Cache hit statistics are
+/// kept if *parser-cache-hits* is #t and can be retrieved by calling
+/// parser-cache-hits on the <parse-context> instance. This retrieves a table
+/// containing productions and corresponding cache hits. If the parsing context
+/// changes in such a way that something may be parsed differently, and that
+/// production is cached, the cache should be invalidated.
 
 define macro parser-definer
 
@@ -218,21 +229,21 @@ define macro parser-definer
    // These delegate to labeled-parser-definer once a label is created.
    
    {
-      define parser ?:name (?supers:*)
+      define ?mods:* parser ?:name (?supers:*)
          label ?label:expression;
          rule ?rule:*;
          ?rest:*
       end
    } => {
       define constant "$" ## ?name ## "-parser-label" = ?label;
-      define labeled-parser ?name (?supers)
+      define ?mods labeled-parser ?name (?supers)
          rule ?rule;
          ?rest
       end
    }
    
    {
-      define parser ?:name :: ?:expression
+      define ?mods:* parser ?:name :: ?:expression
          label ?label:expression;
          rule ?rule:*;
          yield ?yield:*;
@@ -240,7 +251,7 @@ define macro parser-definer
       end
    } => {
       define constant "$" ## ?name ## "-parser-label" = ?label;
-      define labeled-parser ?name :: ?expression
+      define ?mods labeled-parser ?name :: ?expression
          rule ?rule;
          yield ?yield;
          ?rest
@@ -248,41 +259,41 @@ define macro parser-definer
    }
    
    {
-      define parser ?:name
+      define ?mods:* parser ?:name
          label ?label:expression;
          rule ?rule:*;
          ?rest:*
       end
    } => {
       define constant "$" ## ?name ## "-parser-label" = ?label;
-      define labeled-parser ?name
+      define ?mods labeled-parser ?name
          rule ?rule;
          ?rest
       end
    }
 
    {
-      define parser ?:name (?supers:*)
+      define ?mods:* parser ?:name (?supers:*)
          rule ?rule:*;
          ?rest:*
       end
    } => {
       define constant "$" ## ?name ## "-parser-label" = #f;
-      define labeled-parser ?name (?supers)
+      define ?mods labeled-parser ?name (?supers)
          rule ?rule;
          ?rest
       end
    }
    
    {
-      define parser ?:name :: ?:expression
+      define ?mods:* parser ?:name :: ?:expression
          rule ?rule:*;
          yield ?yield:*;
          ?rest:*
       end
    } => {
       define constant "$" ## ?name ## "-parser-label" = #f;
-      define labeled-parser ?name :: ?expression
+      define ?mods labeled-parser ?name :: ?expression
          rule ?rule;
          yield ?yield;
          ?rest
@@ -290,13 +301,13 @@ define macro parser-definer
    }
    
    {
-      define parser ?:name
+      define ?mods:* parser ?:name
          rule ?rule:*;
          ?rest:*
       end
    } => {
       define constant "$" ## ?name ## "-parser-label" = #f;
-      define labeled-parser ?name
+      define ?mods labeled-parser ?name
          rule ?rule;
          ?rest
       end
@@ -309,7 +320,7 @@ define macro labeled-parser-definer
    //
    // This form creates a parser that return an initialized <token> class.
    {
-      define labeled-parser ?token-name:name (?supers)
+      define ?parser-type labeled-parser ?token-name:name (?supers)
          rule ?rule => ?product-name:name :: ?product-type:expression;
          ?class-slots-and-clauses
       end
@@ -331,23 +342,19 @@ define macro labeled-parser-definer
       // Define the parser rule as the result of all the 'seq' etc. functions.
       define constant ?token-name ## "-parser-rule" = ?rule;
       
-      // Define the parser function including tracing and rollback. Result is
-      // <token> subclass, slots initialized by 'initialize' function above.
-      define function "parse-" ## ?token-name
-         (stream :: <positionable-stream>, context)
-      => (token :: false-or("<" ## ?token-name ## "-token>"),
-          success? :: <boolean>, error :: false-or(<parse-failure>))
-         parser-body(prolog ?token-name);
-         let pos = stream.stream-position;
-         let (prod :: ?product-type, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
-               ?token-name ## "-parser-rule" (stream, context);
-         parser-body(main ?token-name, ?product-type, stream, context, pos,
-                     prod, succ?, err);
-         values(succ? & make("<" ## ?token-name ## "-token>", 
-                             start: pos, end: stream.stream-position,
-                             ?product-name: prod),
-                succ?, err);
+      // Define the parser value as a <token> subclass, slots initialized by
+      // 'initialize' function above.
+      define function ?token-name ## "-parser-value"
+         (?product-name :: ?product-type,
+          start-pos :: type-union(<integer>, <stream-position>),
+          end-pos :: type-union(<integer>, <stream-position>))
+      => (value :: "<" ## ?token-name ## "-token>")
+         make("<" ## ?token-name ## "-token>",
+              start: start-pos, end: end-pos, ?product-name: ?product-name)
       end function;
+      
+      // Define the parser function including tracing and rollback.
+      ?parser-type (?token-name, "<" ## ?token-name ## "-token>");
       
       // User defined action functions
       user-functions(?token-name; ?class-slots-and-clauses);
@@ -356,7 +363,7 @@ define macro labeled-parser-definer
    //
    // This form creates a parser that returns the result of an expression.
    {
-      define labeled-parser ?token-name:name :: ?token-type:expression
+      define ?parser-type labeled-parser ?token-name:name :: ?token-type:expression
          rule ?rule => ?product-name:name :: ?product-type:expression;
          yield ?:expression;
          ?body-clauses
@@ -365,27 +372,15 @@ define macro labeled-parser-definer
       // Define the parser rule as the result of all the 'seq' etc. functions.
       define constant ?token-name ## "-parser-rule" = ?rule;
       
-      // Define the yield expression as a separate function to avoid name
-      // collision.
-      define inline function ?token-name ## "-yield-expr"
-            (?product-name :: ?product-type) => (yield :: ?token-type)
+      // Define the parser value as the result of the yield expression.
+      define function ?token-name ## "-parser-value"
+         (?product-name :: ?product-type, start-pos, end-pos)
+      => (value :: ?token-type)
          ?expression;
       end function;
       
-      // Define the parser function including tracing and rollback. Result is
-      // yield expression.
-      define function "parse-" ## ?token-name
-         (stream :: <positionable-stream>, context)
-      => (token :: false-or(?token-type), 
-          success? :: <boolean>, error :: false-or(<parse-failure>))
-         parser-body(prolog ?token-name);
-         let pos = stream.stream-position;
-         let (prod :: ?product-type, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
-               ?token-name ## "-parser-rule" (stream, context);
-         parser-body(main ?token-name, ?product-type, stream, context, pos,
-                     prod, succ?, err);
-         values(succ? & ?token-name ## "-yield-expr" (prod), succ?, err);
-      end function;
+      // Define the parser function including tracing and rollback.
+      ?parser-type (?token-name, ?token-type);
       
       // User defined action functions
       user-functions(?token-name; ?body-clauses);
@@ -394,7 +389,7 @@ define macro labeled-parser-definer
    //
    // This form creates a parser that returns a symbol.
    {
-      define labeled-parser ?token-name:name
+      define ?parser-type labeled-parser ?token-name:name
          rule ?rule;
          ?body-clauses
       end
@@ -402,26 +397,26 @@ define macro labeled-parser-definer
       // Define the parser rule as the result of all the 'seq' etc. functions.
       define constant ?token-name ## "-parser-rule" = ?rule;
       
-      // Define the parser function including tracing and rollback. Result is
-      // a symbol, same as token name.
-      define function "parse-" ## ?token-name
-         (stream :: <positionable-stream>, context)
-      => (token :: false-or(<symbol>),
-          success? :: <boolean>, error :: false-or(<parse-failure>))
-         parser-body(prolog ?token-name);
-         let pos = stream.stream-position;
-         let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
-               ?token-name ## "-parser-rule" (stream, context);
-         parser-body(main ?token-name, <object>, stream, context, pos,
-                     prod, succ?, err);
-         values(succ? & ?#"token-name", succ?, err)
+      // Define the parser value as a symbol, same as token name.
+      define function ?token-name ## "-parser-value" (product, start-pos, end-pos)
+      => (value :: <symbol>)
+         ?#"token-name"
       end function;
+      
+      // Define the parser function including tracing and rollback.
+      ?parser-type (?token-name, <symbol>);
       
       // User defined action functions
       user-functions(?token-name; ?body-clauses);
    }
    
-// Only allow names, the 'seq' etc. functions, or (as a fallback) any token.
+
+// Cached or uncached.
+parser-type:
+   { caching } => { cached-parser-function }
+   { } => { uncached-parser-function }
+
+// Only allow names, the 'seq' etc. functions, or any token (for commas).
 // Names are assumed to be tokens, and changed to the tokens' parser function.
 // 'seq' etc. takes those parser functions and generates a new function from
 // them.
@@ -435,6 +430,7 @@ rule:
    { opt-many(?nested-rule) ... } => { opt-many(?nested-rule) ... }
    { req-next(?nested-rule) ... } => { req-next(?nested-rule) ... }
    { not-next(?nested-rule) ... } => { not-next(?nested-rule) ... }
+   { nil(?:expression) ... } => { nil(?expression) ... }
    { ?:name ... } => { "parse-" ## ?name ... }
    { ?:token ... } => { ?token ... }
    { } => { }
@@ -465,61 +461,186 @@ body-clauses:
 end macro;
 
 
-// This auxiliary macro generates most of the parsers' bodies. It could be
-// simpler if calling macro could use prod, etc., declared here.
+// This auxiliary macro generates a caching parser function.
 
-define macro parser-body
-   {
-      parser-body(prolog ?token-name:name)
-   } => {
+define macro cached-parser-function
+{  cached-parser-function (?token-name:name, ?token-type:expression) } =>
+{  define function "parse-" ## ?token-name
+      (stream :: <positionable-stream>, context :: <parse-context>)
+   => (value :: false-or(?token-type), success? :: <boolean>,
+       failure :: false-or(<parse-failure>))
+      let start-pos = stream.stream-position;
+      let start-pos-index = as(<integer>, start-pos);
+
       indent-trace();
-      format-trace(?"token-name" ## "...");
-   }
+      let pos-cache = context.cache[start-pos-index] | make(<table>);
+      let cached-result = element(pos-cache, ?#"token-name", default: #f);
+      let (value, success?, failure) =
+            if (cached-result)
+               
+               // Result cached. Return appropriate values.
+               
+               // Note a hit.
+               if (*parser-cache-hits*)
+                  context.parser-cache-hits[?#"token-name"] :=
+                        element(context.parser-cache-hits, ?#"token-name", default: 0) + 1;
+               end if;
+               
+               if (cached-result.success-pos)
+                  stream.stream-position := cached-result.success-pos;
+                  let end-pos-index = as(<integer>, cached-result.success-pos);
+                  format-trace(?"token-name" ## " (cached) matched stream pos %x-%x",
+                               start-pos-index, end-pos-index);
+                  values(cached-result.semantic-value, #t,
+                         cached-result.parse-failure);
+               else
+                  let fail-pos-index =
+                        as(<integer>, cached-result.parse-failure.failure-position);
+                  format-trace(?"token-name" ## " (cached) no match at stream pos %x",
+                               fail-pos-index);
+                  values(cached-result.semantic-value, #f,
+                         cached-result.parse-failure);
+               end if;
+            else
+               
+               // Result not cached. Call parser function.
+               
+               let parser-label = "$" ## ?token-name ## "-parser-label";
+               format-trace(?"token-name" ## "...");
+               
+               // Call parser rule to get product.
+               let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
+                     ?token-name ## "-parser-rule" (stream, context);
 
-   {
-      parser-body(main ?token-name:name, ?product-type:expression,
-                  ?stream:name, ?context:name, ?pos:name,
-                  ?prod:name, ?succ:name, ?err:name)
-   } => {
+               // Call user-defined afterwards clause, which may cause failure.
+               let after-error :: false-or(<parse-failure>) =
+                     if (succ?) "match-" ## ?token-name (context, prod) end;
+
+               if (after-error)
+                  after-error.failure-position := after-error.failure-position | start-pos;
+                  if (after-error.empty-description?)
+                     after-error.parse-expected-list :=
+                           list(format-to-string("valid %s", parser-label | "input"));
+                  end if;
+                  succ? := #f;
+                  err := after-error;
+               end if;
+      
+               // Consolidate lower level error descriptions into a better
+               // description for this parser. Better description is either
+               // parser label or after-error (the latter of which will already
+               // be in ?err). If no better description, leave ?err alone.
+               if (~succ? & err.failure-position = start-pos)
+                  if (parser-label & ~after-error)
+                     err.parse-expected-list := list(parser-label);
+                     err.parse-expected-other-than-list := #();
+                  end if;
+               end if;
+      
+               // Log results of parsing.
+               if (succ?)
+                  let end-pos-index = as(<integer>, stream.stream-position);
+                  format-trace(?"token-name" ## " matched stream pos %x-%x",
+                               start-pos-index, end-pos-index);
+               else
+                  let fail-pos-index = as(<integer>, err.failure-position);
+                  format-trace(?"token-name" ## " no match, exp. %s at stream pos %x",
+                               err.parse-expected, fail-pos-index);
+               end if;
+
+               // Call user-defined cleanup clause.
+               "cleanup-" ## ?token-name (context);
+               
+               // Compute semantic value.
+               let value :: false-or(?token-type) =
+                     succ? & ?token-name ## "-parser-value" (prod, start-pos,
+                                                             stream.stream-position);
+
+               // Store in cache.
+               context.cache[start-pos-index] := pos-cache;
+               pos-cache[?#"token-name"] :=
+                     make(<parse-result>, value: value, failure: err,
+                          success-pos: succ? & stream.stream-position);
+
+               // Return values.
+               values(value, succ?, err);
+            end if;
+      outdent-trace();
+      values(value, success?, failure);
+   end function;
+}
+end macro;
+
+
+// This auxiliary macro generates a caching parser function.
+
+define macro uncached-parser-function
+{  uncached-parser-function (?token-name:name, ?token-type:expression) } =>
+{  define function "parse-" ## ?token-name
+      (stream :: <positionable-stream>, context :: <parse-context>)
+   => (value :: false-or(?token-type), success? :: <boolean>,
+       failure :: false-or(<parse-failure>))
+      let start-pos = stream.stream-position;
+      let start-pos-index = as(<integer>, start-pos);
+
+      indent-trace();
+
       let parser-label = "$" ## ?token-name ## "-parser-label";
+      format-trace(?"token-name" ## "...");
+      
+      // Call parser rule to get product.
+      let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
+            ?token-name ## "-parser-rule" (stream, context);
 
       // Call user-defined afterwards clause, which may cause failure.
       let after-error :: false-or(<parse-failure>) =
-            if (?succ) "match-" ## ?token-name (?context, ?prod) end;
+            if (succ?) "match-" ## ?token-name (context, prod) end;
+
       if (after-error)
-         after-error.failure-position := after-error.failure-position | ?pos;
+         after-error.failure-position := after-error.failure-position | start-pos;
          if (after-error.empty-description?)
             after-error.parse-expected-list :=
                   list(format-to-string("valid %s", parser-label | "input"));
          end if;
-         ?succ := #f;
-         ?err := after-error;
+         succ? := #f;
+         err := after-error;
       end if;
       
-      // Consolidate lower level error descriptions into a better description for
-      // this parser. Better description is either parser label or after-error
-      // (the latter of which will already be in ?err). If no better description,
-      // leave ?err alone.
-      if (~?succ & ?err.failure-position = ?pos)
+      // Consolidate lower level error descriptions into a better
+      // description for this parser. Better description is either
+      // parser label or after-error (the latter of which will already
+      // be in ?err). If no better description, leave ?err alone.
+      if (~succ? & err.failure-position = start-pos)
          if (parser-label & ~after-error)
-            ?err.parse-expected-list := list(parser-label);
-            ?err.parse-expected-other-than-list := #();
+            err.parse-expected-list := list(parser-label);
+            err.parse-expected-other-than-list := #();
          end if;
       end if;
       
       // Log results of parsing.
-      if (?succ)
+      if (succ?)
+         let end-pos-index = as(<integer>, stream.stream-position);
          format-trace(?"token-name" ## " matched stream pos %x-%x",
-                      ?pos, ?stream.stream-position);
+                      start-pos-index, end-pos-index);
       else
+         let fail-pos-index = as(<integer>, err.failure-position);
          format-trace(?"token-name" ## " no match, exp. %s at stream pos %x",
-                      ?err.parse-expected, ?err.failure-position);
+                      err.parse-expected, fail-pos-index);
       end if;
-      outdent-trace();
 
       // Call user-defined cleanup clause.
-      "cleanup-" ## ?token-name (?context);
-   }
+      "cleanup-" ## ?token-name (context);
+      
+      // Compute semantic value.
+      let value :: false-or(?token-type) =
+            succ? & ?token-name ## "-parser-value" (prod, start-pos,
+                                                    stream.stream-position);
+
+      // Return values.
+      outdent-trace();
+      values(value, succ?, err);
+   end function;
+}
 end macro;
 
 
