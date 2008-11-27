@@ -1,5 +1,6 @@
-library:    peg-parser
-files:	    library
-	    parser-definers
-	    parser-rules
-	    parser-support
+library: peg-parser
+files:   library
+         parser-definers
+         parser-functions
+         parser-rules
+         parser-support

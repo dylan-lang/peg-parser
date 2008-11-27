@@ -2,6 +2,8 @@ module: dylan-user
 
 define library peg-parser
    use common-dylan;
+   use collection-extensions, import: { collection-utilities };
+   use dynamic-binding;
    use io;
    export peg-parser, peg-parser-client;
 end library;
@@ -11,6 +13,16 @@ define module peg-parser
    // from common-dylan
    use dylan;
    use common-extensions, exclude: {format-to-string};
+   // from collection-extensions
+   use collection-utilities, import: { key-exists? };
+   // from dynamic-binding
+   use dynamic-binding,
+      rename: { with-dynamic-bindings => with-attributes,
+                dynamic-binding => attr,
+                dynamic-binding-setter => attr-setter,
+                <binding-not-in-dynamic-scope> => <attribute-not-in-dynamic-scope>,
+                binding-name => attribute-name },
+      export: { attr, attr-setter };
    // from io
    use streams;
    use format;
@@ -32,10 +44,6 @@ define module peg-parser
 
    export
       collect-subelements, *parser-trace*;
-   
-   // This is only exported because of a bug in Gwydion Dylan (#7392).
-   // Do not use.
-   export labeled-parser-definer;
 end module;
 
 /// Synopsis: Parser usage.
@@ -44,6 +52,6 @@ define module peg-parser-client
       { <parse-failure>, failure-position,
         parse-expected, parse-expected-list, parse-expected-other-than-list,
         <token>, parse-start, parse-end,
-        <parse-context>, parser-cache-hits, invalidate-parser-cache,
-        *parser-cache-hits*, *parser-trace* }
+        <parse-context>, parser-cache-hits, *parser-cache-hits*,
+        *parser-trace* }
 end module;
