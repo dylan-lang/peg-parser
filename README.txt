@@ -16,28 +16,3 @@ the syntax tree via attributes. You can also define a context class to keep
 global information for later semantic processing.
 
 -- Dustin Voss
-
-
------------------
-THINGS TO IMPROVE
------------------
-
-* Soft error recovery. Right now, the parser just gives up when it can't
-  figure out a valid parse. I'd like the parser to be capable of skipping to a
-  checkpoint.
-
-I think I have a good way to do this. Make an operator function called
-resync-parse that takes two arguments, each the name of a parser function. The
-first parser function employs some heuristic to skip ahead in the stream to a
-point where the second parser function should be able to pick up parsing.
-
-If the first parser function succeeds, the resync-parse operation succeeds and
-returns that semantic value. After that, all other parser functions fail
-until, in the normal course of backtracking and trying alternate parses, the
-second parser function is executed. That one executes normally and recovery is
-completed. If the first parser function fails, the resync-parse operation
-fails and the parser retries or gives up as it would in the absence of the
-resync-parse operation.
-
-Regardless, the accumulated error returned by the resync-parse operation is
-the error that caused it to be attempted.

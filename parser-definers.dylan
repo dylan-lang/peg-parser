@@ -116,7 +116,7 @@ define macro parser-method-definer
                          ?"token-name", ?err.parse-expected, ?err.failure-position);
          end if;
          outdent-trace();
-         values(?succ & ?res | #f, ?succ, ?err);
+         values(?succ & ?res, ?succ, ?err);
       end function
    }
 end macro;
@@ -196,15 +196,17 @@ All three forms allow an attributes clause.
 
 [code]
 define parser t
-  rule many(t2)
+  rule many(t2);
 attributes
-  t2-count :: <integer> = 0
+  t2-count :: <integer> = 0,
+  t2-present? :: <boolean> = #t;
 end parser;
 [end code]
 
-The t2-count attribute will be available to all parsers called directly or
-indirectly by parse-t via 'attr' and 'attr-setter'. These are renamed versions
-of the 'dynamic-binding' macros in the 'dynamic-binding' library.
+The t2-count and t2-present? attributes will be available to all parsers called
+directly or indirectly by parse-t via 'attr' and 'attr-setter'. These are
+renamed versions of the 'dynamic-binding' macros in the 'dynamic-binding'
+library.
 
 [code]
 let a = attr(t2-count);
@@ -213,28 +215,21 @@ attr(t2-count) := 3;
 attr-setter(3, t2-count);
 [end code]
 
-=== Caching ===
-
-All three forms allow "caching" as a modifier, i.e. "define caching parser."
-It is better, performance-wise, to only cache certain important productions.
-The cache is kept in the <parse-context> instance. Cache hit statistics are
-kept if *parser-cache-hits* is #t and can be retrieved by calling
-parser-cache-hits on the <parse-context> instance. This retrieves a table
-containing productions and corresponding cache hits.
-
-If the context is altered in such a way to affect parsing, the cache should be
-invalidated completely because the context is global. If an attribute is
-altered in such a way to affect parsing, the cache should be invalidated from
-'end-pos' on (see 'Afterwards and cleanup').
+Attributes are valid in all called parsers, in slot initialization expressions,
+and in afterwards and cleanup clauses. Attribute initialization expressions may
+refer to attributes defined earlier in the clause.
 
 === Afterwards and cleanup ===
 
-All three forms allow two additional clauses, "afterwards" and "cleanup,"
-that perform actions after the rule parser matches or fails to match.
+All three forms allow two additional clauses, "afterwards" and "cleanup," that
+perform actions after the rule parser matches or fails to match. The
+"afterwards" clause is only executed if the rule parser matches; the "cleanup"
+clause is always executed.
 
 The "afterwards" clause has the following arguments:
    'context'   - The context.
    'product'   - The parse product.
+   'value'     - The semantic value.
    'start-pos' - Stream position at the start of the parse.
    'end-pos'   - Next stream position.
    'fail:'     - A name. This will be bound to an exit function taking a
@@ -243,10 +238,7 @@ The "afterwards" clause has the following arguments:
 
 The "cleanup" clause has the following arguments:
    'context'   - As above.
-   'value'     - An instance of <sequence>, #f, or some other value
-                 (usually an instance of <token>), depending on the
-                 parser's rule(s). #f indicates no stream elements were
-                 consumed or the token was not present.
+   'value'     - The semantic value, or #f if the parser did not succeed.
    'success?'  - An instance of <boolean>, indicating whether the parser
                  succeeded. Parsers may succeed even if no product results.
    'error'     - An instance of <parse-failure> or #f. A <parse-failure> may be
@@ -256,7 +248,7 @@ The "cleanup" clause has the following arguments:
 define parser t2 (<token>)
   rule t3 => token;
   slot t3-value = token.value;
-  afterwards (context, token, start-pos, end-pos, fail-parse)
+  afterwards (context, token, value, start-pos, end-pos, fail-parse)
     // Executes if match is successful. 'token' is different from the one
     // in the rule and slot clauses. Invalidate cache if attribute adjustment
     // will cause something to parse differently.
@@ -285,6 +277,28 @@ define parser t
     invalidate-parser-cache(context);
 end parser;
 [end code]
+
+=== Caching ===
+
+All three forms allow "caching" as a modifier, i.e. "define caching parser."
+It is better, performance-wise, to only cache certain important productions.
+The cache is kept in the <parse-context> instance. Cache hit statistics are
+kept if *parser-cache-hits* is #t and can be retrieved by calling
+parser-cache-hits on the <parse-context> instance. This retrieves a table
+containing productions and corresponding cache hits.
+
+If the context is altered in such a way to affect parsing, the cache should be
+invalidated completely because the context is global. If an attribute is
+altered in such a way to affect parsing, the cache should be invalidated from
+'end-pos' on (see 'Afterwards and cleanup').
+
+Once a parser's result is cached, that parser's "afterwards" and "cleanup"
+clauses are never re-evaluated at the cached location. For this reason, it is
+best not to use the 'look-ahead?' method in an "afterwards" or "cleanup" clause
+that is directly or indirectly part of a caching parser. The look-ahead state is
+"frozen" in the cache; if the parser is called when the look-ahead state is
+different, the clauses are not re-evaluated and the result will be whatever was
+cached under the earlier look-ahead state.
 **/
 
 define macro parser-definer
@@ -302,6 +316,7 @@ define macro parser-definer
    //    Zero or more   parser-attr:   (name) :: (type) = (expression)
    //    One            after-ctxt:    (name) :: (type)
    //    One            after-prod:    (name) :: (type)
+   //    One            after-value:   (name) :: (type)
    //    One            after-start:   (name) :: (type)
    //    One            after-end:     (name) :: (type)
    //    One            after-body:    (expression)
@@ -433,20 +448,21 @@ label:
 rule:
    { ?rule-part } => { rule: ?rule-part }
 rule-part:
-   { seq(?nested-rule) ... } => { seq(?nested-rule) ... }
-   { choice(?nested-rule) ... } => { choice(?nested-rule) ... }
-   { many(?nested-rule) ... } => { many(?nested-rule) ... }
-   { opt(?nested-rule) ... } => { opt(?nested-rule) ... }
-   { opt-seq(?nested-rule) ... } => { opt-seq(?nested-rule) ... }
-   { opt-choice(?nested-rule) ... } => { opt-choice(?nested-rule) ... }
-   { opt-many(?nested-rule) ... } => { opt-many(?nested-rule) ... }
-   { req-next(?nested-rule) ... } => { req-next(?nested-rule) ... }
-   { not-next(?nested-rule) ... } => { not-next(?nested-rule) ... }
+   { seq(?nested-rules) ... } => { seq(?nested-rules) ... }
+   { choice(?nested-rules) ... } => { choice(?nested-rules) ... }
+   { many(?nested-rules) ... } => { many(?nested-rules) ... }
+   { opt(?nested-rules) ... } => { opt(?nested-rules) ... }
+   { opt-seq(?nested-rules) ... } => { opt-seq(?nested-rules) ... }
+   { opt-choice(?nested-rules) ... } => { opt-choice(?nested-rules) ... }
+   { opt-many(?nested-rules) ... } => { opt-many(?nested-rules) ... }
+   { req-next(?nested-rules) ... } => { req-next(?nested-rules) ... }
+   { not-next(?nested-rules) ... } => { not-next(?nested-rules) ... }
+   { skip(?nested-rules) ... } => { skip(?nested-rules) ... }
    { nil(?:expression) ... } => { nil(?expression) ... }
    { ?:name ... } => { "parse-" ## ?name ... }
    { ?:token ... } => { ?token ... }
    { } => { }
-nested-rule:
+nested-rules:
    { ?rule-part } => { ?rule-part }
 
 // Product name and type.
@@ -484,21 +500,20 @@ attributes-list:
 // turned into expressions in the expansions, which is why the 'after-body:'
 // and 'cleanup-body:' symbols are expressions.
 afterwards-clause:
-   {  afterwards (?context:variable, ?product:variable, ?start:variable,
-                  ?end:variable, #key ?fail:name = omitted)
+   {  afterwards (?context:variable, ?product:variable, ?value:variable,
+                  ?start:variable, ?end:variable, #key ?fail:name = omitted)
          ?:body
       ?cleanup-clause
    } => {
-      after-ctxt: ?context, after-prod: ?product, after-start: ?start,
-      after-end: ?end, after-body: ?body, after-fail: ?fail,
+      after-ctxt: ?context, after-prod: ?product, after-value: ?value,
+      after-start: ?start, after-end: ?end, after-body: ?body, after-fail: ?fail,
       ?cleanup-clause
    }
 
    {  ?cleanup-clause
    } => {
-      after-ctxt: c, after-prod: p, after-start: s, after-end: e, after-body: #f,
-      after-fail: omitted,
-      ?cleanup-clause
+      after-ctxt: c, after-prod: p, after-value: v, after-start: s, after-end: e,
+      after-body: #f, after-fail: omitted, ?cleanup-clause
    }
 
 attr:
@@ -598,7 +613,7 @@ define macro symbol-style-parser
       define constant ?token-name ## "-parser-rule" = ?rule;
       
       // Define the parser value as a symbol, same as token name.
-      define function ?token-name ## "-parser-value" (product, start-pos, end-pos)
+      define inline function ?token-name ## "-parser-value" (product, start-pos, end-pos)
       => (value :: <symbol>)
          ?#"token-name"
       end function;

@@ -8,11 +8,11 @@ define library peg-parser
    export peg-parser, peg-parser-client;
 end library;
 
-/// Synopsis: Parser creation.
+// Synopsis: Module for parser creation.
 define module peg-parser
    // from common-dylan
    use dylan;
-   use common-extensions, exclude: {format-to-string};
+   use common-extensions, exclude: { format-to-string };
    // from collection-extensions
    use collection-utilities, import: { key-exists? };
    // from dynamic-binding
@@ -22,31 +22,31 @@ define module peg-parser
                 dynamic-binding-setter => attr-setter,
                 <binding-not-in-dynamic-scope> => <attribute-not-in-dynamic-scope>,
                 binding-name => attribute-name },
-      export: { attr, attr-setter };
+      export: all;
    // from io
    use streams;
    use format;
    use standard-io;
 
    export
-      <parse-context>, parser-cache-hits, invalidate-parser-cache,
-      *parser-cache-hits*;
+      <parse-context>, look-ahead?,
+      parser-cache-hits, invalidate-parser-cache, *parser-cache-hits*;
       
    export
       parser-definer, parser-method-definer,
       <parse-failure>, parse-expected, combine-errors, failure-position,
       parse-expected-list, parse-expected-other-than-list,
-      <token>, parse-start, parse-end;
+      <token>, parse-start, parse-end, parse-start-setter, parse-end-setter;
    
    export
-      seq, choice, many, opt, req-next, not-next, nil,
+      seq, choice, many, opt, req-next, not-next, nil, skip,
       opt-seq, opt-choice, opt-many;
 
    export
       collect-subelements, *parser-trace*;
-end module;
+end module;   
 
-/// Synopsis: Parser usage.
+/// Synopsis: Simplified module for parser usage.
 define module peg-parser-client
    use peg-parser, export:
       { <parse-failure>, failure-position,

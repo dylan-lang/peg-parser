@@ -53,11 +53,11 @@ VALUES:
 SYNOPSIS: Builds a rule parser matching a sequence of elements.
           Equivalent to PEG "p1 p2" operation.
 ARGUMENTS:
-  "#rest sub-rules" - A series of rule parsers, all of which must succeed
-                      for the returned parser to succeed.
+   #rest sub-rules - A series of rule parsers, all of which must succeed
+                     for the returned parser to succeed.
 VALUES:
-  rule-parser - A rule parser returning a <sequence>. The sequence will
-                contain the sub-rules' products.
+   rule-parser - A rule parser returning a <sequence>. The sequence will
+                 contain the sub-rules' products.
 **/
 define function seq (#rest sub-rules) => (rule-parser :: <function>)
    local method parse-seq
@@ -91,10 +91,10 @@ end function;
 SYNOPSIS: Builds a rule parser matching one of several elements.
           Equivalent to PEG "p1 / p2" operation.
 ARGUMENTS:
-  "#rest sub-rules" - A series of rule parsers, the first of which to
-                      succeed supplies the parser's product.
+   #rest sub-rules - A series of rule parsers, the first of which to
+                     succeed supplies the parser's product.
 VALUES:
-  rule-parser - A rule parser returning one of the sub-rules' products.
+   rule-parser - A rule parser returning one of the sub-rules' products.
 **/
 define function choice (#rest sub-rules) => (rule-parser :: <function>)
    local method parse-choice
@@ -128,10 +128,10 @@ end function;
 SYNOPSIS: Builds a rule parser matching one or more elements.
           Equivalent to PEG "p1+" operation.
 ARGUMENTS:
-  sub-rule - A rule parser.
+   sub-rule - A rule parser.
 VALUES:
-  rule-parser - A rule parser returning a <sequence> containing the
-                sub-rule's products. 
+   rule-parser - A rule parser returning a <sequence> containing the
+                 sub-rule's products. 
 **/
 define function many (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-many
@@ -166,10 +166,10 @@ end function;
 SYNOPSIS: Builds a rule parser matching zero or one element.
           Equivalent to PEG "p1?" operation.
 ARGUMENTS:
-  sub-rule - A rule parser.
+   sub-rule - A rule parser.
 VALUES:
-  rule-parser - A rule parser returning the sub-rule's product, or #f if
-                the element is not present.
+   rule-parser - A rule parser returning the sub-rule's product, or #f if
+                 the element is not present.
 **/
 define function opt (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-opt
@@ -187,10 +187,10 @@ end function;
 SYNOPSIS: Builds a rule parser matching zero or more elements.
           Equivalent to PEG "p1*" operation.
 ARGUMENTS:
-  sub-rule - A rule parser.
+   sub-rule - A rule parser.
 VALUES:
-  rule-parser - A rule parser returning a <sequence> containing the
-                sub-rule's products, or #f if the elements are not present. 
+   rule-parser - A rule parser returning a <sequence> containing the
+                 sub-rule's products, or #f if the elements are not present. 
 **/
 define function opt-many (sub-rule :: <function>) => (rule-parser :: <function>)
    opt(many(sub-rule))
@@ -201,11 +201,11 @@ end function;
 SYNOPSIS: Builds a rule parser matching all elements or none of them.
           Equivalent to PEG "(p1 p2)?" operation.
 ARGUMENTS:
-  "#rest sub-rules" - A series of rule parsers, all of which must match
-                      for this parser to match.
+   #rest sub-rules - A series of rule parsers, all of which must match
+                     for this parser to match.
 VALUES:
-  rule-parser - A rule parser returning #f or a <sequence> containing
-                all sub-rules' products.
+   rule-parser - A rule parser returning #f or a <sequence> containing
+                 all sub-rules' products.
 **/
 define function opt-seq (#rest sub-rules) => (rule-parser :: <function>)
    opt(apply(seq, sub-rules));
@@ -216,10 +216,10 @@ end function;
 SYNOPSIS: Builds a rule parser matching one of the specified elements or
 none of them. Equivalent to PEG "(p1 / p2)?" operation.
 ARGUMENTS:
-  "#rest sub-rules" - A series of rule parsers.
+   #rest sub-rules - A series of rule parsers.
 VALUES:
-  rule-parser - A rule parser returning #f or the product of the
-                matching rule.
+   rule-parser - A rule parser returning #f or the product of the
+                 matching rule.
 **/
 define function opt-choice (#rest sub-rules) => (rule-parser :: <function>)
    opt(apply(choice, sub-rules));
@@ -230,21 +230,23 @@ end function;
 SYNOPSIS: Builds a rule parser that looks ahead to match the sub-rule
 without consuming any elements. Equivalent to PEG "&p1" operation.
 ARGUMENTS:
-  sub-rule - A rule parser.
+   sub-rule - A rule parser.
 VALUES:
-  rule-parser - A rule parser returning #f.
+   rule-parser - A rule parser returning #f.
 **/
 define function req-next (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-req-next
       (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: singleton(#f),
        success? :: <boolean>, error :: false-or(<parse-failure>))
+      context.lookahead-depth := context.lookahead-depth + 1;
       let pos = stream.stream-position;
       let (prod, succ?, err) = sub-rule(stream, context);
       if (~succ?)
          err := combine-errors(err, make(<parse-failure>, position: pos));
       end if;
       stream.stream-position := pos;
+      context.lookahead-depth := context.lookahead-depth - 1;
       values(#f, succ?, err)
    end method;
    parse-req-next
@@ -256,21 +258,26 @@ SYNOPSIS: Builds a rule parser that looks ahead to ensure the sub-rule
 does not match, but does not consume any elements in doing so.
 Equivalent to PEG "!p1" operation.
 ARGUMENTS:
-  sub-rule - A rule parser.
+   sub-rule - A rule parser.
 VALUES:
-  rule-parser - A rule parser returning #f.
+   rule-parser - A rule parser returning #f.
 **/
 define function not-next (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-not-next
       (stream :: <positionable-stream>, context :: <parse-context>)
    => (product :: singleton(#f),
        success? :: <boolean>, error :: false-or(<parse-failure>))
+      context.lookahead-depth := context.lookahead-depth + 1;
       let pos = stream.stream-position;
       let (prod, succ?, err) = sub-rule(stream, context);
       if (succ?)
-         err := combine-errors(err, make(<parse-failure>, position: pos));
+         let comb = combine-errors(err, make(<parse-failure>, position: pos));
+         err := make(<parse-failure>, position: comb.failure-position,
+                     expected-list: comb.parse-expected-other-than-list,
+                     expected-other-than-list: comb.parse-expected-list);
       end if;
       stream.stream-position := pos;
+      context.lookahead-depth := context.lookahead-depth - 1;
       values(#f, ~succ?, err)
    end method;
    parse-not-next
@@ -282,9 +289,9 @@ SYNOPSIS: Builds a rule parser that does not consume any input and always
 succeeds, returning a constant semantic value. Useful for distinguishing
 and aligning parallel token sequences.
 ARGUMENTS:
-  product - An instance of <object>.
+   product - An instance of <object>.
 VALUES:
-  rule-parser - A rule parser returning 'product'.
+   rule-parser - A rule parser returning 'product'.
 **/
 define function nil (product :: <object>) => (rule-parser :: <function>)
    local method parse-nil
@@ -294,4 +301,26 @@ define function nil (product :: <object>) => (rule-parser :: <function>)
       values(product, #t, #f)
    end method;
    parse-nil
+end function;
+
+
+/**
+SYNOPSIS: Builds a rule parser that executes the sub-rule but attempts to
+preserve <parse-failure>. This rule is intended for use with a fallback element
+in a 'choice' rule that ignores a parse failure and continues.
+ARGUMENTS:
+  rule - A rule parser.
+VALUES:
+  rule-parser - As 'rule', but does not affect <parse-failure> if successful.
+*/
+define function skip (rule :: <function>)
+=> (rule-parser :: <function>)
+   local method parse-skip
+      (stream, context :: <parse-context>)
+   => (product :: <object>,
+       success? :: <boolean>, error :: false-or(<parse-failure>))
+      let (prod, succ?, err) = rule(stream, context);
+      values(prod, succ?, ~succ? & err)
+   end method;
+   parse-skip
 end function;

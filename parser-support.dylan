@@ -13,7 +13,9 @@ same context state. This may be avoided by removing the cached result using
 **/
 
 define open class <parse-context> (<object>)
-   /// Cache. Size is 0 if caching disabled.
+   // 'Req-next' and 'not-next' increment this and decrement when done.
+   slot lookahead-depth :: <integer> = 0;
+   // Cache. Size is 0 if caching disabled.
    slot cache :: <vector>;
    /// A table keyed by production name containing the number of cache hits.
    constant slot parser-cache-hits = make(<table>);
@@ -73,6 +75,17 @@ define class <parse-result> (<object>)
    constant slot parse-failure :: false-or(<parse-failure>),
       required-init-keyword: #"failure";
 end class;
+
+
+/**
+SYNOPSIS: Indicates whether parser is currently evaluating 'req-next' or
+'not-next'.
+**/
+
+define inline function look-ahead? (context :: <parse-context>)
+=> (look-ahead? :: <boolean>)
+   context.lookahead-depth > 0
+end function;
 
 
 /**
@@ -195,9 +208,9 @@ characters (i.e. all look-ahead rules).
 **/
 
 define open abstract class <token> (<object>)
-   constant slot parse-start :: type-union(<integer>, <stream-position>),
+   slot parse-start :: type-union(<integer>, <stream-position>),
       required-init-keyword: #"start";
-   constant slot parse-end :: type-union(<integer>, <stream-position>),
+   slot parse-end :: type-union(<integer>, <stream-position>),
       required-init-keyword: #"end";
 end class;
 

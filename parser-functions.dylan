@@ -42,12 +42,11 @@ define macro parser-function
                   values(cached-result.semantic-value, #t,
                          cached-result.parse-failure);
                else
-                  let fail-pos-index =
-                        as(<integer>, cached-result.parse-failure.failure-position);
-                  format-trace("%s (cached) no match at stream pos %x",
-                               ?"token-name", fail-pos-index);
-                  values(cached-result.semantic-value, #f,
-                         cached-result.parse-failure);
+                  let err = cached-result.parse-failure;
+                  let fail-pos-index = as(<integer>, err.failure-position);
+                  format-trace("%s (cached) no match, exp. %s at stream pos %x",
+                               ?"token-name", err.parse-expected, fail-pos-index);
+                  values(cached-result.semantic-value, #f, err);
                end if;
             else
                
@@ -63,12 +62,17 @@ define macro parser-function
                   let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
                         ?token-name ## "-parser-rule" (stream, context);
 
+                  // Compute proposed semantic value.
+                  let prop-value :: false-or(?token-type) =
+                        succ? & ?token-name ## "-parser-value" (prod, start-pos,
+                                                                stream.stream-position);
+
                   // Call user-defined afterwards clause, which may cause failure.
                   let after-error :: false-or(<parse-failure>) =
                         if (succ?)
                            let end-pos-index = as(<integer>, stream.stream-position);
                            "after-" ## ?token-name
-                                 (context, prod, start-pos-index, end-pos-index)
+                                 (context, prod, prop-value, start-pos-index, end-pos-index)
                         end if;
 
                   if (after-error)
@@ -82,9 +86,9 @@ define macro parser-function
                   end if;
       
                   // Consolidate lower level error descriptions into a better
-                  // description for this parser. Better description is either
-                  // parser label or after-error (the latter of which will already
-                  // be in ?err). If no better description, leave ?err alone.
+                  // description for this parser. Best description is anything
+                  // from a later position, otherwise the parser label or
+                  // after-error. If no better description, leave err alone.
                   if (~succ? & err.failure-position = start-pos)
                      if (parser-label & ~after-error)
                         err.parse-expected-list := list(parser-label);
@@ -103,11 +107,9 @@ define macro parser-function
                                   ?"token-name", err.parse-expected, fail-pos-index);
                   end if;
 
-                  // Compute semantic value.
-                  let value :: false-or(?token-type) =
-                        succ? & ?token-name ## "-parser-value" (prod, start-pos,
-                                                                stream.stream-position);
-
+                  // Compute actual semantic value.
+                  let value :: false-or(?token-type) = succ? & prop-value;
+                  
                   // Call user-defined cleanup clause.
                   "cleanup-" ## ?token-name (context, value, succ?, err);
 
@@ -153,11 +155,17 @@ define macro parser-function
          let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
                ?token-name ## "-parser-rule" (stream, context);
 
+         // Compute proposed semantic value.
+         let prop-value :: false-or(?token-type) =
+               succ? & ?token-name ## "-parser-value" (prod, start-pos,
+                                                       stream.stream-position);
+
          // Call user-defined afterwards clause, which may cause failure.
          let after-error :: false-or(<parse-failure>) =
                if (succ?)
                   let end-pos-index = as(<integer>, stream.stream-position);
-                  "after-" ## ?token-name (context, prod, start-pos-index, end-pos-index)
+                  "after-" ## ?token-name
+                        (context, prod, prop-value, start-pos-index, end-pos-index)
                end if;
 
          if (after-error)
@@ -171,9 +179,9 @@ define macro parser-function
          end if;
       
          // Consolidate lower level error descriptions into a better
-         // description for this parser. Better description is either
-         // parser label or after-error (the latter of which will already
-         // be in ?err). If no better description, leave ?err alone.
+         // description for this parser. Best description is anything
+         // from a later position, otherwise the parser label or
+         // after-error. If no better description, leave err alone.
          if (~succ? & err.failure-position = start-pos)
             if (parser-label & ~after-error)
                err.parse-expected-list := list(parser-label);
@@ -192,10 +200,8 @@ define macro parser-function
                          ?"token-name", err.parse-expected, fail-pos-index);
          end if;
 
-         // Compute semantic value.
-         let value :: false-or(?token-type) =
-               succ? & ?token-name ## "-parser-value" (prod, start-pos,
-                                                       stream.stream-position);
+         // Compute actual semantic value.
+         let value :: false-or(?token-type) = succ? & prop-value;
 
          // Call user-defined cleanup clause.
          "cleanup-" ## ?token-name (context, value, succ?, err);
@@ -254,7 +260,7 @@ slot:
    { inherited ?slot-name:name = ?:expression }
       => { token.?slot-name := ?expression }
    { ?slot-name:name :: ?slot-type:expression }
-      => { }
+      => { #f /* because Gwydion Dylan prefers ";#f;" to ";;" */ }
 end macro;
 
 
@@ -263,15 +269,15 @@ end macro;
 define macro user-functions
    {  user-functions
          #key ?token-name:name, ?after-ctxt:variable, ?after-prod:variable,
-         ?after-start:variable, ?after-end:variable, ?after-body:expression,
-         ?after-fail:name, ?cleanup-ctxt:variable, ?cleanup-value:variable,
-         ?cleanup-succ:variable, ?cleanup-err:variable,
+         ?after-value:variable, ?after-start:variable, ?after-end:variable,
+         ?after-body:expression, ?after-fail:name, ?cleanup-ctxt:variable,
+         ?cleanup-value:variable, ?cleanup-succ:variable, ?cleanup-err:variable,
          ?cleanup-body:expression,
          #all-keys;
       end
    } => {
       define inline function "after-" ## ?token-name
-         (?after-ctxt, ?after-prod, ?after-start, ?after-end)
+         (?after-ctxt, ?after-prod, ?after-value, ?after-start, ?after-end)
       => (new-err :: false-or(<parse-failure>))
          block (?after-fail)
             ?after-body; #f
