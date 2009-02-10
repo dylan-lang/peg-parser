@@ -5,7 +5,7 @@ define module PL0-grammar
    use common-dylan, exclude: {format-to-string};
    // from io
    use streams;
-   use format, import: {format-to-string};
+   use format, import: {format, format-to-string};
    use format-out;
    use print, import: {print-object, print};
    use pprint, import: {printing-logical-block, pprint-newline};

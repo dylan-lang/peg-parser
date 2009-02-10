@@ -6,4 +6,5 @@ files:  gd-library
         main-module/gd-definitions
         grammar-module/lexical-grammar
         grammar-module/phrase-grammar
+        grammar-module/printers
         main-module/main

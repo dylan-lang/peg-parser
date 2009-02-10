@@ -6,4 +6,5 @@ files:  od-library
         main-module/od-definitions
         grammar-module/lexical-grammar
         grammar-module/phrase-grammar
+        grammar-module/printers
         main-module/main
