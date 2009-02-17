@@ -335,8 +335,8 @@ define macro parser-definer
    // Class style
    //    Zero or more   super:         (type)
    //    Zero or more   slot:          (name) :: (type)
-   //    Zero or more   slot:          (name) :: (type) = (expression)
-   //    Zero or more   slot:          inherited (name) = (expression)
+   //       or          slot:          (name) :: (type) = (expression)
+   //       or          slot:          inherited (name) = (expression)
    //
    // Yield style
    //    One            yield-expr:    (expression)
@@ -515,9 +515,6 @@ afterwards-clause:
       after-ctxt: c, after-prod: p, after-value: v, after-start: s, after-end: e,
       after-body: #f, after-fail: omitted, ?cleanup-clause
    }
-
-attr:
-   { ?:name } => { after-attr: ?name }
 
 // Optional cleanup clause.
 cleanup-clause:

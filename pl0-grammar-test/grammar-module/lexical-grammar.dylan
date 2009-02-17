@@ -8,7 +8,7 @@ end class;
 define macro lexemes-definer
    { define lexemes ?parse-items end } => { ?parse-items }
 parse-items:
-   { ?:name = ?:expression ?sep:expression; ... }
+   { ?:name = ?:expression ?sep:name; ... }
    => {  define parser-method "lit-" ## ?name (stream, context)
          => (string :: false-or(<string>))
             label format-to-string("\"%s\"", ?expression);
@@ -28,14 +28,14 @@ end macro;
 
 
 define lexemes
-   \PERIOD      = "."         any-sep;
-   \EQUAL       = "="         any-sep;
-   \COMMA       = ","         any-sep;
-   \SEMICOLON   = ";"         any-sep;
+   \PERIOD      = "."         nil-sep;
+   \EQUAL       = "="         nil-sep;
+   \COMMA       = ","         nil-sep;
+   \SEMICOLON   = ";"         nil-sep;
    \CONST       = "CONST"     word-sep;
    \VAR         = "VAR"       word-sep;
    \PROCEDURE   = "PROCEDURE" word-sep;
-   \COLON-EQUAL = ":="        any-sep;
+   \COLON-EQUAL = ":="        nil-sep;
    \CALL        = "CALL"      word-sep;
    \BEGIN       = "BEGIN"     word-sep;
    \END         = "END"       word-sep;
@@ -44,34 +44,34 @@ define lexemes
    \WHILE       = "WHILE"     word-sep;
    \DO          = "DO"        word-sep;
    \ODD         = "ODD"       word-sep;
-   \HASH        = "#"         any-sep;
+   \HASH        = "#"         nil-sep;
    \LT          = "<"         lt-sep;
-   \LTE         = "<="        any-sep;
+   \LTE         = "<="        nil-sep;
    \GT          = ">"         gt-sep;
-   \GTE         = ">="        any-sep;
-   \PLUS        = "+"         any-sep;
-   \MINUS       = "-"         any-sep;
-   \STAR        = "*"         any-sep;
-   \SLASH       = "/"         any-sep;
-   \LF-PAREN    = "("         any-sep;
-   \RT-PAREN    = ")"         any-sep;  
+   \GTE         = ">="        nil-sep;
+   \PLUS        = "+"         nil-sep;
+   \MINUS       = "-"         nil-sep;
+   \STAR        = "*"         nil-sep;
+   \SLASH       = "/"         nil-sep;
+   \LF-PAREN    = "("         nil-sep;
+   \RT-PAREN    = ")"         nil-sep;  
 end lexemes;
 
 define parser lex-IDENT (<lexeme>)
-   rule seq(letter, opt-many(choice(letter, digit)), any-sep) => tokens;
+   rule seq(letter, opt-many(choice(letter, digit)), nil-sep) => tokens;
    inherited slot text = concatenate(as(<string>, tokens[0]), tokens[1] | "");
 afterwards (context, tokens, result, start-pos, end-pos)
    result.parse-end := tokens.last.parse-start;
 end;
 
 define parser lex-NUMBER (<lexeme>)
-   rule seq(many(digit), any-sep) => tokens;
+   rule seq(many(digit), nil-sep) => tokens;
    inherited slot text = as(<string>, tokens[0]);
 afterwards (context, tokens, result, start-pos, end-pos)
    result.parse-end := tokens.last.parse-start;
 end; 
 
-define parser any-sep (<token>)
+define parser nil-sep (<token>)
    rule opt-space => token;
 end;
 
