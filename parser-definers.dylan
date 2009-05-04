@@ -64,11 +64,9 @@ define macro parser-method-definer
    //
    
    { define parser-method ?:name (?params:*) => (?r1:variable) ?rest:* end }
-      => { define parser-method ?name (?params) =>
-           (?r1, r2 :: singleton(#f), r3 :: singleton(#f)) ?rest end }
+      => { define parser-method ?name (?params) => (?r1, r2, r3) ?rest end }
    { define parser-method ?:name (?params:*) => (?r1:variable, ?r2:variable) ?rest:* end }
-      => { define parser-method ?name (?params) => 
-           (?r1, ?r2, r3 :: singleton(#f)) ?rest end }
+      => { define parser-method ?name (?params) => (?r1, ?r2, r3) ?rest end }
    
    //
    // This is the main form.
