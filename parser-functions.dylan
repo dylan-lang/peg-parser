@@ -64,8 +64,8 @@ define macro parser-function
 
                   // Compute proposed semantic value.
                   let prop-value :: false-or(?token-type) =
-                        succ? & ?token-name ## "-parser-value" (prod, start-pos,
-                                                                stream.stream-position);
+                        succ? & ?token-name ## "-parser-value"
+                        (context, prod, start-pos, stream.stream-position);
 
                   // Call user-defined afterwards clause, which may cause failure.
                   let after-error :: false-or(<parse-failure>) =
@@ -86,15 +86,23 @@ define macro parser-function
                   end if;
       
                   // Consolidate lower level error descriptions into a better
-                  // description for this parser. Best description is anything
-                  // from a later position, otherwise the parser label or
-                  // after-error. If no better description, leave err alone.
-                  if (~succ? & err.failure-position = start-pos)
-                     if (parser-label & ~after-error)
-                        err.parse-expected-list := list(parser-label);
-                        err.parse-expected-other-than-list := #();
-                     end if;
+                  // description for this parser. Best description of errors
+                  // below this parser is after-error or this parser's own label.
+                  // Sibling errors will be resolved by higher-level choice
+                  // operators. If no better error, leave err alone.
+                  if (~succ? & ~after-error & parser-label)
+                     err.parse-expected-list := list(parser-label);
+                     err.parse-expected-other-than-list := #();
                   end if;
+
+                  // Earlier logic that assumes later errors are always better,
+                  // in case I am wrong above.
+                  // if (~succ? & err.failure-position = start-pos)
+                  //    if (parser-label & ~after-error)
+                  //       err.parse-expected-list := list(parser-label);
+                  //       err.parse-expected-other-than-list := #();
+                  //    end if;
+                  // end if;
       
                   // Log results of parsing.
                   if (succ?)
@@ -114,13 +122,11 @@ define macro parser-function
                   "cleanup-" ## ?token-name (context, value, succ?, err);
 
                   // Store in cache.
-                  unless (context.cache.size = 0)
-                     let pos-cache = pos-cache | make(<table>);
-                     context.cache[start-pos-index] := pos-cache;
-                     pos-cache[?#"token-name"] :=
-                           make(<parse-result>, value: value, failure: err,
-                                success-pos: succ? & stream.stream-position);
-                  end unless;
+                  let pos-cache = pos-cache | make(<table>);
+                  context.cache[start-pos-index] := pos-cache;
+                  pos-cache[?#"token-name"] :=
+                        make(<parse-result>, value: value, failure: err,
+                             success-pos: succ? & stream.stream-position);
 
                   // Return values.
                   values(value, succ?, err);
@@ -157,8 +163,8 @@ define macro parser-function
 
          // Compute proposed semantic value.
          let prop-value :: false-or(?token-type) =
-               succ? & ?token-name ## "-parser-value" (prod, start-pos,
-                                                       stream.stream-position);
+               succ? & ?token-name ## "-parser-value"
+               (context, prod, start-pos, stream.stream-position);
 
          // Call user-defined afterwards clause, which may cause failure.
          let after-error :: false-or(<parse-failure>) =
@@ -179,15 +185,23 @@ define macro parser-function
          end if;
       
          // Consolidate lower level error descriptions into a better
-         // description for this parser. Best description is anything
-         // from a later position, otherwise the parser label or
-         // after-error. If no better description, leave err alone.
-         if (~succ? & err.failure-position = start-pos)
-            if (parser-label & ~after-error)
-               err.parse-expected-list := list(parser-label);
-               err.parse-expected-other-than-list := #();
-            end if;
+         // description for this parser. Best description of errors
+         // below this parser is after-error or this parser's own label.
+         // Sibling errors will be resolved by higher-level choice
+         // operators. If no better error, leave err alone.
+         if (~succ? & ~after-error & parser-label)
+            err.parse-expected-list := list(parser-label);
+            err.parse-expected-other-than-list := #();
          end if;
+
+         // Earlier logic that assumes later errors are always better,
+         // in case I am wrong above.
+         // if (~succ? & err.failure-position = start-pos)
+         //    if (parser-label & ~after-error)
+         //       err.parse-expected-list := list(parser-label);
+         //       err.parse-expected-other-than-list := #();
+         //    end if;
+         // end if;
       
          // Log results of parsing.
          if (succ?)
@@ -235,20 +249,22 @@ end macro;
 
 
 // This auxiliary macro turns slot clauses into an initialize function. The
-// initialization expressions will be in terms of ?product-name.
+// initialization expressions will be in terms of ?product-name and ?context-name.
 
 define macro initialize-specifier
    {  initialize-specifier
          #key ?token-type:name, ?product-name:name, ?product-type:expression,
-         ??slot, #all-keys;
+         ?context-name:name, ?context-type:expression, ??slot, #all-keys;
       end
    } => {
       define method initialize
             (token :: ?token-type, #next next-method,
              #key ?product-name :: type-union(?product-type, singleton(unsupplied()))
+                  = unsupplied(),
+                  ?context-name :: type-union(?context-type, singleton(unsupplied()))
                   = unsupplied())
          next-method(token);
-         if (supplied?(?product-name))
+         if (supplied?(?product-name) & supplied?(?context-name))
             ??slot; ...
          end if;
       end method;
@@ -264,31 +280,62 @@ slot:
 end macro;
 
 
-// This auxiliary macro generates the after- and cleanup- functions.
+// These auxiliary macro generates the after- and cleanup- functions. These
+// functions are not inlined for clearer debugging.
 
-define macro user-functions
-   {  user-functions
+define macro after-function
+   {  after-function
          #key ?token-name:name, ?after-ctxt:variable, ?after-prod:variable,
          ?after-value:variable, ?after-start:variable, ?after-end:variable,
-         ?after-body:expression, ?after-fail:name, ?cleanup-ctxt:variable,
-         ?cleanup-value:variable, ?cleanup-succ:variable, ?cleanup-err:variable,
-         ?cleanup-body:expression,
+         ?after-body:expression, ?after-fail:name,
          #all-keys;
       end
    } => {
-      define inline function "after-" ## ?token-name
+      define function "after-" ## ?token-name
          (?after-ctxt, ?after-prod, ?after-value, ?after-start, ?after-end)
       => (new-err :: false-or(<parse-failure>))
          block (?after-fail)
             ?after-body; #f
          end block
-      end function;
-      
-      define inline function "cleanup-" ## ?token-name
+      end function
+   }
+   
+   {  after-function
+         #key ?token-name:name, #all-keys;
+      end
+   } => {
+      define constant "after-" ## ?token-name :: <function>
+            = do-nothing
+   }
+end macro;
+
+
+define macro cleanup-function
+   {  cleanup-function
+         #key ?token-name:name, ?cleanup-ctxt:variable, ?cleanup-value:variable,
+         ?cleanup-succ:variable, ?cleanup-err:variable,
+         ?cleanup-body:expression,
+         #all-keys;
+      end
+   } => {
+      define function "cleanup-" ## ?token-name
          (?cleanup-ctxt, ?cleanup-value, ?cleanup-succ, ?cleanup-err)
       => ()
          ?cleanup-body
       end function
    }
+   
+   {  cleanup-function
+         #key ?token-name:name, #all-keys;
+      end
+   } => {
+      define constant "cleanup-" ## ?token-name :: <function>
+            = do-nothing
+   }
 end macro;
+
+
+define inline function do-nothing (#rest anything) => (false :: singleton(#f))
+   #f
+end function;
 

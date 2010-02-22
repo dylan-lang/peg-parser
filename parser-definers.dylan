@@ -132,6 +132,7 @@ This form creates a token class.
 [code]
 define parser t (<c>, <token>)
   rule many(t2) => tokens;
+  parse-context => context;
   inherited slot content = tokens[1];
   slot more-content :: <string> = tokens[2];
 end parser;
@@ -139,11 +140,11 @@ end parser;
 
 defines a rule parser named parse-t and a token class named <t-token> which
 inherits from <c> and <token>. The superclass is optional, but the parentheses
-aren't. <t-token> will have a slot named content (inherited from <c>) and a
-slot named more-content. When <t-token> is initialized, tokens gets set to the
-product of the rule `many(t2)`, content gets set to the expression
-`tokens[1]`, and more-content gets set to the expression `tokens[2]` (which
-must be a <string>).
+aren't. The parse-context clause is optional. <t-token> will have a slot named
+content (inherited from <c>) and a slot named more-content. When <t-token> is
+initialized, tokens gets set to the product of the rule `many(t2)`, context gets
+set to the parse context, content gets set to the expression `tokens[1]`, and
+more-content gets set to the expression `tokens[2]` (which must be a <string>).
 
 === Yield form ===
 
@@ -152,13 +153,15 @@ Yield form returns a value.
 [code]
 define parser t :: <token>
   rule many(t2) => tokens;
+  parse-context => context;
   yield tokens[1];
 end parser;
 [end code]
 
 defines a rule parser that returns `tokens[1]` (which must be a <token>)
 directly, without defining a <t-token> class. The type specialization is
-optional.
+optional, as is the parse-context clause. The yield expression may refer to
+tokens and context.
 
 === Symbol form ===
 
@@ -280,7 +283,8 @@ end parser;
 
 All three forms allow "caching" as a modifier, i.e. "define caching parser."
 It is better, performance-wise, to only cache certain important productions.
-The cache is kept in the <parse-context> instance. Cache hit statistics are
+The cache is kept in the <parse-context> instance and may be preallocated by
+supplying the 'cache-stream:' keyword to 'make'. Cache hit statistics are
 kept if *parser-cache-hits* is #t and can be retrieved by calling
 parser-cache-hits on the <parse-context> instance. This retrieves a table
 containing productions and corresponding cache hits.
@@ -312,23 +316,27 @@ define macro parser-definer
    //    Zero or one    label:         (expression)
    //    One            rule:          (expression)
    //    Zero or more   parser-attr:   (name) :: (type) = (expression)
-   //    One            after-ctxt:    (name) :: (type)
-   //    One            after-prod:    (name) :: (type)
-   //    One            after-value:   (name) :: (type)
-   //    One            after-start:   (name) :: (type)
-   //    One            after-end:     (name) :: (type)
-   //    One            after-body:    (expression)
-   //    Either         after-fail:    (name)
-   //       or          after-fail:    omitted
-   //    One            cleanup-ctxt:  (name) :: (type)
-   //    One            cleanup-value: (name) :: (type)
-   //    One            cleanup-succ:  (name) :: (type)
-   //    One            cleanup-err:   (name) :: (type)
-   //    One            cleanup-body:  (expression)
+   //    Zero or one    after-ctxt:    (name) :: (type)
+   //       as above    after-prod:    (name) :: (type)
+   //       as above    after-value:   (name) :: (type)
+   //       as above    after-start:   (name) :: (type)
+   //       as above    after-end:     (name) :: (type)
+   //       as above    after-body:    (expression)
+   //       as above    after-fail:    (name)
+   //          or       after-fail:    omitted
+   //    Zero or one    cleanup-ctxt:  (name) :: (type)
+   //       as above    cleanup-value: (name) :: (type)
+   //       as above    cleanup-succ:  (name) :: (type)
+   //       as above    cleanup-err:   (name) :: (type)
+   //       as above    cleanup-body:  (expression)
    //
    // Class and yield style
    //    One            product-name:  (name)
    //    One            product-type:  (type)
+   //    Either         context-name:  (name)
+   //       or          context-name:  omitted
+   //    Either         context-type:  (type)
+   //       or          context-type:  <parse-context>
    //
    // Class style
    //    Zero or more   super:         (type)
@@ -339,32 +347,33 @@ define macro parser-definer
    // Yield style
    //    One            yield-expr:    (expression)
 
+   
    //
    // These forms create parsers that return an initialized <token> class.
    //
    
    {  define ?parser-type parser ?token-name:name (?supers)
          rule ?rule => ?rule-product:variable;
-         ?class-slots-and-clauses
+         ?context-and-slots-clauses
       end
    } => {
       class-style-parser
          ?parser-type, token-name: ?token-name, ?supers,
          token-type: "<" ## ?token-name ## "-token>", ?rule, ?rule-product,
-         ?class-slots-and-clauses
+         ?context-and-slots-clauses
       end
    }
    
    {  define ?parser-type parser ?token-name:name (?supers)
          label ?label:expression;
          rule ?rule => ?rule-product:variable;
-         ?class-slots-and-clauses
+         ?context-and-slots-clauses
       end
    } => {
       class-style-parser
          ?parser-type, token-name: ?token-name, ?supers, ?label,
          token-type: "<" ## ?token-name ## "-token>", ?rule, ?rule-product,
-         ?class-slots-and-clauses
+         ?context-and-slots-clauses
       end
    }
    
@@ -374,29 +383,27 @@ define macro parser-definer
    
    {  define ?parser-type parser ?token-name:name :: ?token-type:expression
          rule ?rule => ?rule-product:variable;
-         yield ?yield-expr:expression;
-         ?body-clauses
+         ?context-and-yield-clauses
       end
    } => {
       yield-style-parser
          ?parser-type, token-name: ?token-name, token-type: ?token-type,
-         ?rule, ?rule-product, ?yield-expr, ?body-clauses
+         ?rule, ?rule-product, ?context-and-yield-clauses
       end
    }
 
    {  define ?parser-type parser ?token-name:name :: ?token-type:expression
          label ?label:expression;
          rule ?rule => ?rule-product:variable;
-         yield ?yield-expr:expression;
-         ?body-clauses
+         ?context-and-yield-clauses
       end
    } => {
       yield-style-parser
          ?parser-type, token-name: ?token-name, token-type: ?token-type,
-         ?label, ?rule, ?rule-product, ?yield-expr, ?body-clauses
+         ?label, ?rule, ?rule-product, ?context-and-yield-clauses
       end
    }
-   
+
    //
    // These forms create parsers that return a symbol.
    //
@@ -467,6 +474,32 @@ nested-rules:
 rule-product:
    { ?:name :: ?:expression } => { product-name: ?name, product-type: ?expression }
 
+// Context name and type.
+context-and-slots-clauses:
+   { parse-context => ?context-var:variable; ?class-slots-and-clauses }
+      => { ?context-var, ?class-slots-and-clauses }
+   { ?class-slots-and-clauses }
+      => { context-name: omitted, context-type: <parse-context>,
+           ?class-slots-and-clauses }
+   
+context-and-yield-clauses:
+   {  parse-context => ?context-var:variable;
+      yield ?yield-expr:expression;
+      ?body-clauses
+   } => {
+      ?context-var, ?yield-expr, ?body-clauses
+   }
+   
+   {  yield ?yield-expr:expression;
+      ?body-clauses
+   } => {
+      context-name: omitted, context-type: <parse-context>, ?yield-expr,
+      ?body-clauses
+   }
+
+context-var:
+   { ?:name :: ?:expression } => { context-name: ?name, context-type: ?expression }
+
 // Yield expression.
 yield-expr:
    { ?:expression } => { yield-expr: ?expression }
@@ -507,12 +540,7 @@ afterwards-clause:
       after-start: ?start, after-end: ?end, after-body: ?body, after-fail: ?fail,
       ?cleanup-clause
    }
-
-   {  ?cleanup-clause
-   } => {
-      after-ctxt: c, after-prod: p, after-value: v, after-start: s, after-end: e,
-      after-body: #f, after-fail: omitted, ?cleanup-clause
-   }
+   { ?cleanup-clause } => { ?cleanup-clause }
 
 // Optional cleanup clause.
 cleanup-clause:
@@ -522,11 +550,7 @@ cleanup-clause:
       cleanup-ctxt: ?context, cleanup-value: ?value, cleanup-succ: ?succ,
       cleanup-err: ?err, cleanup-body: ?body
    }
-   
-   { } => {
-      cleanup-ctxt: c, cleanup-value: v, cleanup-succ: s, cleanup-err: e,
-      cleanup-body: #f
-   }
+   { } => { }
 end macro;
 
 
@@ -536,7 +560,8 @@ define macro class-style-parser
    {  class-style-parser
          #rest ?clauses:*, #key ?parser-type:name, ?token-name:token,
          ?token-type:expression, ?rule:expression, ?product-name:name,
-         ?product-type:expression, #all-keys;
+         ?product-type:expression, ?context-name:name, ?context-type:expression,
+         #all-keys;
       end
    } => {
       // Define the class.
@@ -550,20 +575,21 @@ define macro class-style-parser
       
       // Define the parser value as a <token> subclass, slots initialized by
       // 'initialize' function above.
-      define function ?token-name ## "-parser-value"
-         (?product-name :: ?product-type,
+      define inline function ?token-name ## "-parser-value"
+         (?context-name :: ?context-type, ?product-name :: ?product-type,
           start-pos :: type-union(<integer>, <stream-position>),
           end-pos :: type-union(<integer>, <stream-position>))
       => (value :: ?token-type)
          make(?token-type, start: start-pos, end: end-pos,
-              ?product-name: ?product-name)
+              ?context-name: ?context-name, ?product-name: ?product-name)
       end function;
       
       // Define the parser function including tracing and rollback.
       parser-function ?parser-type, ?clauses end;
       
       // User defined action functions
-      user-functions ?clauses end
+      after-function ?clauses end;
+      cleanup-function ?clauses end;
    }
 end macro;
 
@@ -574,7 +600,8 @@ define macro yield-style-parser
    {  yield-style-parser
          #rest ?clauses:*, #key ?parser-type:name, ?token-name:token,
          ?token-type:expression, ?rule:expression, ?product-name:name,
-         ?product-type:expression, ?yield-expr:expression, #all-keys;
+         ?product-type:expression, ?context-name:name, ?context-type:expression,
+         ?yield-expr:expression, #all-keys;
       end
    } => {
       // Define the parser rule by evaluating all the 'seq' etc. functions.
@@ -582,7 +609,8 @@ define macro yield-style-parser
       
       // Define the parser value as the result of the yield expression.
       define function ?token-name ## "-parser-value"
-         (?product-name :: ?product-type, start-pos, end-pos)
+         (?context-name :: ?context-type, ?product-name :: ?product-type,
+          start-pos, end-pos)
       => (value :: ?token-type)
          ?yield-expr;
       end function;
@@ -591,7 +619,8 @@ define macro yield-style-parser
       parser-function ?parser-type, ?clauses end;
       
       // User defined action functions
-      user-functions ?clauses end
+      after-function ?clauses end;
+      cleanup-function ?clauses end;
    }
 end macro;
 
@@ -608,7 +637,8 @@ define macro symbol-style-parser
       define constant ?token-name ## "-parser-rule" = ?rule;
       
       // Define the parser value as a symbol, same as token name.
-      define inline function ?token-name ## "-parser-value" (product, start-pos, end-pos)
+      define inline function ?token-name ## "-parser-value"
+         (context, product, start-pos, end-pos)
       => (value :: <symbol>)
          ?#"token-name"
       end function;
@@ -617,6 +647,7 @@ define macro symbol-style-parser
       parser-function ?parser-type, ?clauses end;
       
       // User defined action functions
-      user-functions ?clauses end
+      after-function ?clauses end;
+      cleanup-function ?clauses end;
    }
 end macro;

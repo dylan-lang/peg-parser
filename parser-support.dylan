@@ -15,16 +15,20 @@ same context state. This may be avoided by removing the cached result using
 define open class <parse-context> (<object>)
    // 'Req-next' and 'not-next' increment this and decrement when done.
    slot lookahead-depth :: <integer> = 0;
-   // Cache. Size is 0 if caching disabled.
+   // Each element is a stream position and may be #f or a cached result table.
    slot cache :: <vector>;
-   /// A table keyed by production name containing the number of cache hits.
+
+   /// A table, keyed by production name, containing the number of cache hits.
    constant slot parser-cache-hits = make(<table>);
+
+   /// If supplied, the cache is preallocated, otherwise it is created and grown
+   /// as needed.
    keyword #"cache-stream", type: <positionable-stream>;
 end class;
 
 define method initialize (obj :: <parse-context>, #key cache-stream = #f) => ()
    next-method();
-   let cache-size =
+   obj.cache :=
          if (cache-stream)
             // Can't use stream-size because it isn't defined for several
             // common streams.
@@ -32,11 +36,11 @@ define method initialize (obj :: <parse-context>, #key cache-stream = #f) => ()
             let stream-size = adjust-stream-position(cache-stream, 0, from: #"end");
             cache-stream.stream-position := pos;
             // The +1 is for the parse result at the end-of-stream position.
-            as(<integer>, stream-size) + 1
+            let cache-size = as(<integer>, stream-size) + 1;
+            make(<vector>, size: cache-size)
          else
-            0
+            make(<stretchy-vector>)
          end if;
-   obj.cache := make(<vector>, size: cache-size);
 end method;
 
 
@@ -61,7 +65,7 @@ invalid cached parse results.
 define method invalidate-parser-cache
    (context :: <parse-context>, #key from :: <integer> = 0)
 => ()
-   unless (context.cache.size = 0)
+   unless (context.cache.size < from)
       fill!(context.cache, #f, start: from)
    end unless
 end method;
