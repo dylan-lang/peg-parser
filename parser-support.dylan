@@ -170,6 +170,12 @@ define method parse-expected (err :: <parse-failure>) => (string :: <string>)
 end method;
 
 
+define method condition-to-string (err :: <parse-failure>) => (string :: <string>)
+   format-to-string("Parse failure at stream pos #x%x: expected %s",
+         err.failure-position, err.parse-expected)
+end method;
+
+
 /**
 SYNOPSIS: Merges two <parse-failure>s into one. The rightmost of the two is
 assumed to be the more relevant.

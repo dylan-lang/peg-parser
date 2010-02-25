@@ -121,8 +121,10 @@ define macro parser-function
                   // Call user-defined cleanup clause.
                   "cleanup-" ## ?token-name (context, value, succ?, err);
 
-                  // Store in cache.
-                  let pos-cache = pos-cache | make(<table>);
+                  // Store in cache. Get pos-cache again, because lower productions
+                  // may have changed the cache at this position.
+                  let pos-cache = element(context.cache, start-pos-index, default: #f)
+                        | make(<table>);
                   context.cache[start-pos-index] := pos-cache;
                   pos-cache[?#"token-name"] :=
                         make(<parse-result>, value: value, failure: err,
