@@ -145,18 +145,25 @@ SYNOPSIS: Printable version of 'parse-expected-list' and
 **/
 
 define method parse-expected (err :: <parse-failure>) => (string :: <string>)
+   let expected-list = err.parse-expected-list.shallow-copy;
+   for (other-than-desc in err.parse-expected-other-than-list)
+      expected-list := remove!(expected-list, other-than-desc, test: \=)
+   end for;
+
    let exp = "";
-   unless (err.parse-expected-list.empty?)
+   unless (expected-list.empty?)
       exp := reduce(method (a, b) concatenate(a, " or ", b) end,
-                    err.parse-expected-list.first,
-                    err.parse-expected-list.tail);
+                    expected-list.first,
+                    expected-list.tail);
    end unless;
+
    let unexp = "";
    unless (err.parse-expected-other-than-list.empty?)
       unexp := reduce(method (a, b) concatenate(a, " or ", b) end,
                       err.parse-expected-other-than-list.first,
                       err.parse-expected-other-than-list.tail);
    end unless;
+   
    case
       ~exp.empty? & ~unexp.empty? =>
          concatenate(exp, " and not ", unexp);
