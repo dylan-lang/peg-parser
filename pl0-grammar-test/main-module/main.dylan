@@ -20,7 +20,7 @@ define function main(name, arguments)
       
       if (failure)
          format-out("Parsed to %x, expected %s\n",
-                    failure.failure-position, failure.parse-expected);
+                    failure.parse-position, failure.parse-expected);
       end if;
       
       for (count keyed-by parser in context.parser-cache-hits)

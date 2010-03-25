@@ -76,8 +76,8 @@ define class <parse-result> (<object>)
    constant slot semantic-value :: <object>, required-init-keyword: #"value";
    constant slot success-pos :: false-or(type-union(<integer>, <stream-position>)),
       required-init-keyword: #"success-pos";
-   constant slot parse-failure :: false-or(<parse-failure>),
-      required-init-keyword: #"failure";
+   constant slot parse-extent :: false-or(<parse-extent>),
+      required-init-keyword: #"extent";
 end class;
 
 
@@ -93,25 +93,57 @@ end function;
 
 
 /**
-SYNOPSIS: Indicates why a parser did not parse further than it did.
+SYNOPSIS: Summarizes the furthest successful or unsuccessful parse.
 
-See 'rule parser' for more information. This is a subclass of <warning>, but
-is not signaled by the PEG parser library.
+See 'rule parser' for more information.
 **/
 
-define class <parse-failure> (<warning>)
+define abstract class <parse-extent> (<object>)
+   /// An instance of <integer> or <stream-position>.
+   slot parse-position :: false-or(type-union(<integer>, <stream-position>)) = #f,
+      init-keyword: #"position";
+end class;
+   
+
+/**
+SYNOPSIS: Indicates furthest successful parse.
+**/
+
+define class <parse-success> (<parse-extent>)
+   /// A list of <string>. Descriptions of successful parses at
+   /// 'parse-position'.
+   slot parse-success-list :: <list> = #(),
+      init-keyword: #"success-list";
+   keyword #"success", type: <string>;
+end class;
+
+define method initialize
+   (obj :: <parse-success>,
+    #key success :: false-or(<string>) = #f, success-list)
+=> ()
+   next-method();
+   if (success)
+      obj.parse-success-list :=
+            add-new!(obj.parse-success-list, success, test: \=);
+   end if;
+end method;
+   
+
+/**
+SYNOPSIS: Indicates why a parser did not parse further than it did.
+
+This is a subclass of <warning>, but is not signaled by the PEG parser library.
+**/
+
+define class <parse-failure> (<warning>, <parse-extent>)
    /// A list of <string>. Descriptions of what parser expected at
-   /// 'failure-position'.
+   /// 'parse-position'.
    slot parse-expected-list :: <list> = #(),
       init-keyword: #"expected-list";
    /// As 'parse-expected-list', but what the parser did not expect at
-   /// 'failure-position'.
+   /// 'parse-position'.
    slot parse-expected-other-than-list :: <list> = #(),
       init-keyword: #"expected-other-than-list";
-   /// An instance of <integer> or <stream-position>.
-   slot failure-position
-      :: false-or(type-union(<integer>, <stream-position>)) = #f,
-      init-keyword: #"position";
    keyword #"expected", type: <string>;
    keyword #"expected-other-than", type: <string>;
 end class;
@@ -134,7 +166,8 @@ define method initialize
    end if;
 end method;
 
-define method empty-description? (err :: <parse-failure>) => (empty? :: <boolean>)
+define method empty-failure-lists? (err :: <parse-failure>) 
+=> (empty? :: <boolean>)
    err.parse-expected-list.empty? & err.parse-expected-other-than-list.empty?
 end method;
 
@@ -179,26 +212,37 @@ end method;
 
 define method condition-to-string (err :: <parse-failure>) => (string :: <string>)
    format-to-string("Parse failure at stream pos #x%x: expected %s",
-         err.failure-position, err.parse-expected)
+         err.parse-position, err.parse-expected)
 end method;
 
 
 /**
-SYNOPSIS: Merges two <parse-failure>s into one. The rightmost of the two is
+SYNOPSIS: Merges two <parse-extent>s into one. A <parse-failure> is assumed to
+be more interesting than a <parse-success> and the rightmost of two extents is
 assumed to be the more relevant.
 
 If you write a manual parser that calls other parser functions, use this
-function to combine all the <parse-failure>s returned by those functions.
+function to combine all the <parse-extent>s returned by those functions.
 **/
 
-define method combine-errors
-   (a :: false-or(<parse-failure>), b :: false-or(<parse-failure>))
-=> (combined-error :: false-or(<parse-failure>))
+define generic combine-extents (a :: <parse-extent>, b :: <parse-extent>)
+=> (combined-extent :: <parse-extent>);
+
+define method combine-extents (a :: <parse-success>, b :: <parse-failure>)
+=> (combined-extent :: <parse-failure>)
+   b
+end method;
+
+define method combine-extents (a :: <parse-failure>, b :: <parse-success>)
+=> (combined-extent :: <parse-failure>)
+   a
+end method;
+
+define method combine-extents (a :: <parse-failure>, b :: <parse-failure>)
+=> (combined-extent :: <parse-failure>)
    case
-      ~a => b;
-      ~b => a;
-      a.failure-position > b.failure-position => a;
-      b.failure-position > a.failure-position => b;
+      a.parse-position > b.parse-position => a;
+      b.parse-position > a.parse-position => b;
       otherwise =>
          // Combine them, removing duplicates.
          for (exp in b.parse-expected-list)
@@ -208,6 +252,20 @@ define method combine-errors
          for (exp in b.parse-expected-other-than-list)
             a.parse-expected-other-than-list :=
                   add-new!(a.parse-expected-other-than-list, exp, test: \=);
+         end for;
+         a;
+   end case;
+end method;
+
+define method combine-extents (a :: <parse-success>, b :: <parse-success>)
+=> (combined-extent :: <parse-success>)
+   case
+      a.parse-position > b.parse-position => a;
+      b.parse-position > a.parse-position => b;
+      otherwise =>
+         // Combine them, removing duplicates.
+         for (succ in b.parse-success-list)
+            a.parse-success-list := add-new!(a.parse-success-list, succ, test: \=);
          end for;
          a;
    end case;

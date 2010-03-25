@@ -20,18 +20,21 @@ stream so that another parser may be tried.
 
 If the parser fails to match, it must return an instance of <parse-failure>
 describing the expected or unexpected element that caused the parser to fail.
-If the parser succeeds, it may return #f or an instance of <parse-failure>. In
-this case, the instance of <parse-failure> describes errors that arose while
-parsing, but from which the parser backtracked and recovered. If there were no
-parse errors, recovered or otherwise, then the parser should return #f. Parse
-errors should be combined with 'combine-errors'.
+
+If the parser succeeds, it may return an instance of <parse-success> or
+<parse-failure>. It should return an instance of <parse-failure> to describe
+errors that arose while parsing, but from which the parser backtracked and
+recovered. If there were no parse errors, recovered or otherwise, then the
+parser should return <parse-success>. Parse errors should be combined with
+'combine-extents'.
 
 Conceptually, <parse-failure> instances describe why a parser did not parse
 further than it did. If all parsers ultimately fail to match, one of these
-errors indicated a possible root cause.
+errors indicated a possible root cause. <Parse-success> instances describe the
+furthest the parser has parsed and are only relevant for 'not-next' parsers.
 
-These behaviors are done automatically when using 'parser-method-definer' or
-'parser-definer' macros or the 'seq' etc. functions.
+All these behaviors are implemented automatically when using
+'parser-method-definer' or 'parser-definer' macros or the 'seq' etc. functions.
 
 ARGUMENTS:
    stream   - An instance of <positionable-stream>.
@@ -44,8 +47,7 @@ VALUES:
                  consumed or the token was not present.
    success?    - An instance of <boolean>, indicating whether the parser
                  succeeded. Parsers may succeed even if no product results.
-   error       - An instance of <parse-failure> or #f. A <parse-failure> may be
-                 returned even if the parser succeeds.
+   extent      - An instance of <parse-extent>.
 **/
 
 
@@ -62,15 +64,14 @@ VALUES:
 define function seq (#rest sub-rules) => (rule-parser :: <function>)
    local method parse-seq
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (product :: false-or(<sequence>),
-       success? :: <boolean>, error :: false-or(<parse-failure>))
+   => (product :: false-or(<sequence>), success? :: <boolean>, extent :: <parse-extent>)
       let pos = stream.stream-position;
       let product = make(<vector>, size: sub-rules.size);
       let found? = #t;
-      let combined-error = #f;
+      let combined-extent = make(<parse-success>, position: pos);
       for (rule in sub-rules, i from 0, while: found?)
-         let (prod, succ?, err) = rule(stream, context);
-         combined-error := combine-errors(combined-error, err);
+         let (prod, succ?, ext) = rule(stream, context);
+         combined-extent := combine-extents(combined-extent, ext);
          if (succ?)
             product[i] := prod;
          else
@@ -78,10 +79,10 @@ define function seq (#rest sub-rules) => (rule-parser :: <function>)
             found? := #f;
          end if;
       end for;
-      if (~found? & ~combined-error)
-         combined-error := make(<parse-failure>, position: pos);
+      if (~found? & instance?(combined-extent, <parse-success>))
+         combined-extent := make(<parse-failure>, position: pos)
       end if;
-      values(found? & product, found?, combined-error)
+      values(found? & product, found?, combined-extent)
    end method;
    parse-seq
 end function;
@@ -99,15 +100,14 @@ VALUES:
 define function choice (#rest sub-rules) => (rule-parser :: <function>)
    local method parse-choice
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (product :: false-or(<object>),
-       success? :: <boolean>, error :: false-or(<parse-failure>))
+   => (product :: false-or(<object>), success? :: <boolean>, extent :: <parse-extent>)
       let pos = stream.stream-position;
       let product = #f;
       let found? = #f;
-      let combined-error = #f;
+      let combined-extent = make(<parse-success>, position: pos);
       for (rule in sub-rules, until: found?)
-         let (prod, succ?, err) = rule(stream, context);
-         combined-error := combine-errors(combined-error, err);
+         let (prod, succ?, ext) = rule(stream, context);
+         combined-extent := combine-extents(combined-extent, ext);
          if (succ?)
             product := prod;
             found? := #t;
@@ -115,10 +115,10 @@ define function choice (#rest sub-rules) => (rule-parser :: <function>)
             stream.stream-position := pos;
          end if;
       end for;
-      if (~found? & ~combined-error)
-         combined-error := make(<parse-failure>, position: pos);
+      if (~found? & instance?(combined-extent, <parse-success>))
+         combined-extent := make(<parse-failure>, position: pos)
       end if;
-      values(product, found?, combined-error)
+      values(product, found?, combined-extent)
    end method;
    parse-choice
 end function;
@@ -136,15 +136,14 @@ VALUES:
 define function many (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-many
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (product :: false-or(<sequence>),
-       success? :: <boolean>, error :: false-or(<parse-failure>))
+   => (product :: false-or(<sequence>), success? :: <boolean>, extent :: <parse-extent>)
       let pos = stream.stream-position;
       let product = make(<deque>);
       let found? = #t;
-      let combined-error = #f;
+      let combined-extent = make(<parse-success>, position: pos);
       while (found?)
-         let (prod, succ?, err) = sub-rule(stream, context);
-         combined-error := combine-errors(combined-error, err);
+         let (prod, succ?, ext) = sub-rule(stream, context);
+         combined-extent := combine-extents(combined-extent, ext);
          if (succ?)
             push-last(product, prod);
          else
@@ -154,9 +153,9 @@ define function many (sub-rule :: <function>) => (rule-parser :: <function>)
       if (product.empty?)
          stream.stream-position := pos;
          product := #f;
-         combined-error := combined-error | make(<parse-failure>, position: pos);
+         combined-extent := make(<parse-failure>, position: pos);
       end if;
-      values(product, product ~= #f, combined-error)
+      values(product, product ~= #f, combined-extent)
    end method;
    parse-many
 end function;
@@ -174,10 +173,9 @@ VALUES:
 define function opt (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-opt
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (product :: false-or(<object>),
-       success? :: singleton(#t), error :: false-or(<parse-failure>))
-      let (prod, succ?, err) = sub-rule(stream, context);
-      values(prod, #t, err);
+   => (product :: false-or(<object>), success? :: singleton(#t), extent :: <parse-extent>)
+      let (prod, succ?, ext) = sub-rule(stream, context);
+      values(prod, #t, ext);
    end method;
    parse-opt
 end function;
@@ -237,17 +235,18 @@ VALUES:
 define function req-next (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-req-next
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (product :: singleton(#f),
-       success? :: <boolean>, error :: false-or(<parse-failure>))
+   => (product :: singleton(#f), success? :: <boolean>, extent :: <parse-extent>)
       context.lookahead-depth := context.lookahead-depth + 1;
       let pos = stream.stream-position;
-      let (prod, succ?, err) = sub-rule(stream, context);
+      let (prod, succ?, ext) = sub-rule(stream, context);
       if (~succ?)
-         err := combine-errors(err, make(<parse-failure>, position: pos));
+         ext := combine-extents(ext, make(<parse-failure>, position: pos))
+      else
+         ext := combine-extents(ext, make(<parse-success>, position: pos))
       end if;
       stream.stream-position := pos;
       context.lookahead-depth := context.lookahead-depth - 1;
-      values(#f, succ?, err)
+      values(#f, succ?, ext)
    end method;
    parse-req-next
 end function;
@@ -265,20 +264,26 @@ VALUES:
 define function not-next (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-not-next
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (product :: singleton(#f),
-       success? :: <boolean>, error :: false-or(<parse-failure>))
+   => (product :: singleton(#f), success? :: <boolean>, extent :: <parse-extent>)
       context.lookahead-depth := context.lookahead-depth + 1;
       let pos = stream.stream-position;
-      let (prod, succ?, err) = sub-rule(stream, context);
+      let (prod, succ?, ext) = sub-rule(stream, context);
       if (succ?)
-         let comb = combine-errors(err, make(<parse-failure>, position: pos));
-         err := make(<parse-failure>, position: comb.failure-position,
-                     expected-list: comb.parse-expected-other-than-list,
-                     expected-other-than-list: comb.parse-expected-list);
+         if (instance?(ext, <parse-success>))
+            ext := make(<parse-failure>, position: ext.parse-position,
+                        expected-other-than-list: ext.parse-success-list)
+         else
+            ext := make(<parse-failure>, position: ext.parse-position,
+                        expected-list: ext.parse-expected-other-than-list,
+                        expected-other-than-list: ext.parse-expected-list)
+         end if;
+         ext := combine-extents(ext, make(<parse-failure>, position: pos))
+      else
+         ext := combine-extents(ext, make(<parse-success>, position: pos))
       end if;
       stream.stream-position := pos;
       context.lookahead-depth := context.lookahead-depth - 1;
-      values(#f, ~succ?, err)
+      values(#f, ~succ?, ext)
    end method;
    parse-not-next
 end function;
@@ -296,9 +301,8 @@ VALUES:
 define function nil (product :: <object>) => (rule-parser :: <function>)
    local method parse-nil
       (stream, context :: <parse-context>)
-   => (product :: <object>,
-       success? :: singleton(#t), error :: singleton(#f))
-      values(product, #t, #f)
+   => (product :: <object>, success? :: singleton(#t), extent :: <parse-success>)
+      values(product, #t, make(<parse-success>, position: stream.stream-position))
    end method;
    parse-nil
 end function;
@@ -306,21 +310,25 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser that executes the sub-rule but attempts to
-preserve <parse-failure>. This rule is intended for use with a fallback element
-in a 'choice' rule that ignores a parse failure and continues.
+prevent 'combine-extents' from affecting its caller's existing <parse-extent>.
+This rule is intended for use with a fallback element in a 'choice' rule that
+ignores a parse failure and continues.
 ARGUMENTS:
   rule - A rule parser.
 VALUES:
-  rule-parser - As 'rule', but does not affect <parse-failure> if successful.
+  rule-parser - As 'rule', but does not affect caller's extent if successful.
 */
 define function skip (rule :: <function>)
 => (rule-parser :: <function>)
    local method parse-skip
       (stream, context :: <parse-context>)
-   => (product :: <object>,
-       success? :: <boolean>, error :: false-or(<parse-failure>))
-      let (prod, succ?, err) = rule(stream, context);
-      values(prod, succ?, ~succ? & err)
+   => (product :: <object>, success? :: <boolean>, extent :: <parse-extent>)
+      let (prod, succ?, ext) = rule(stream, context);
+      if (succ?)
+         values(prod, succ?, make(<parse-success>, position: stream.stream-position))
+      else
+         values(prod, succ?, ext)
+      end if;
    end method;
    parse-skip
 end function;

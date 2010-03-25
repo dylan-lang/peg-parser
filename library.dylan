@@ -34,8 +34,9 @@ define module peg-parser
       
    export
       parser-definer, parser-method-definer,
-      <parse-failure>, parse-expected, combine-errors, failure-position,
-      parse-expected-list, parse-expected-other-than-list,
+      <parse-extent>, <parse-success>, <parse-failure>, parse-position,
+      parse-expected-list, parse-expected-other-than-list, parse-success-list,
+      parse-expected, combine-extents,
       <token>, parse-start, parse-end, parse-start-setter, parse-end-setter;
    
    export
@@ -49,8 +50,9 @@ end module;
 /// Synopsis: Simplified module for parser usage.
 define module peg-parser-client
    use peg-parser, export:
-      { <parse-failure>, failure-position,
-        parse-expected, parse-expected-list, parse-expected-other-than-list,
+      { <parse-extent>, <parse-success>, <parse-failure>, parse-position,
+        parse-expected-list, parse-expected-other-than-list, parse-success-list,
+        parse-expected,
         <token>, parse-start, parse-end,
         <parse-context>, parser-cache-hits, *parser-cache-hits*,
         *parser-trace* }

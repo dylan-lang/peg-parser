@@ -15,15 +15,14 @@ define macro parser-function
 } => {
    define function "parse-" ## ?token-name
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (value :: false-or(?token-type), success? :: <boolean>,
-       failure :: false-or(<parse-failure>))
+   => (value :: false-or(?token-type), success? :: <boolean>, extent :: <parse-extent>)
       let start-pos = stream.stream-position;
       let start-pos-index = as(<integer>, start-pos);
 
       indent-trace();
       let pos-cache = element(context.cache, start-pos-index, default: #f);
       let cached-result = pos-cache & element(pos-cache, ?#"token-name", default: #f);
-      let (value, success?, failure) =
+      let (value, success?, extent) =
             if (cached-result)
                
                // Result cached. Return appropriate values.
@@ -40,10 +39,10 @@ define macro parser-function
                   format-trace("%s (cached) matched stream pos %x-%x",
                                ?"token-name", start-pos-index, end-pos-index);
                   values(cached-result.semantic-value, #t,
-                         cached-result.parse-failure);
+                         cached-result.parse-extent);
                else
-                  let err = cached-result.parse-failure;
-                  let fail-pos-index = as(<integer>, err.failure-position);
+                  let err = cached-result.parse-extent;
+                  let fail-pos-index = as(<integer>, err.parse-position);
                   format-trace("%s (cached) no match, exp. %s at stream pos %x",
                                ?"token-name", err.parse-expected, fail-pos-index);
                   values(cached-result.semantic-value, #f, err);
@@ -59,7 +58,7 @@ define macro parser-function
                with-attributes (??parser-attr, ...)
 
                   // Call parser rule to get product.
-                  let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
+                  let (prod, succ? :: <boolean>, ext :: <parse-extent>) =
                         ?token-name ## "-parser-rule" (stream, context);
 
                   // Compute proposed semantic value.
@@ -76,28 +75,32 @@ define macro parser-function
                         end if;
 
                   if (after-error)
-                     after-error.failure-position := after-error.failure-position | start-pos;
-                     if (after-error.empty-description?)
+                     after-error.parse-position := after-error.parse-position | start-pos;
+                     if (after-error.empty-failure-lists?)
                         after-error.parse-expected-list :=
                               list(format-to-string("valid %s", parser-label | "input"));
                      end if;
                      succ? := #f;
-                     err := after-error;
+                     ext := after-error;
                   end if;
       
-                  // Consolidate lower level error descriptions into a better
-                  // description for this parser. Best description of errors
+                  // Consolidate lower level extent descriptions into a better
+                  // description for this parser. Best description of extents
                   // below this parser is after-error or this parser's own label.
-                  // Sibling errors will be resolved by higher-level choice
-                  // operators. If no better error, leave err alone.
-                  if (~succ? & ~after-error & parser-label)
-                     err.parse-expected-list := list(parser-label);
-                     err.parse-expected-other-than-list := #();
+                  // Sibling descriptions will be resolved by higher-level choice
+                  // operators. If no better description, leave ext alone.
+                  if (~after-error & parser-label)
+                     if (instance?(ext, <parse-success>))
+                        ext.parse-success-list := list(parser-label);
+                     else
+                        ext.parse-expected-list := list(parser-label);
+                        ext.parse-expected-other-than-list := #();
+                     end if;
                   end if;
 
                   // Earlier logic that assumes later errors are always better,
                   // in case I am wrong above.
-                  // if (~succ? & err.failure-position = start-pos)
+                  // if (~succ? & err.parse-position = start-pos)
                   //    if (parser-label & ~after-error)
                   //       err.parse-expected-list := list(parser-label);
                   //       err.parse-expected-other-than-list := #();
@@ -110,16 +113,16 @@ define macro parser-function
                      format-trace("%s matched stream pos %x-%x",
                                   ?"token-name", start-pos-index, end-pos-index);
                   else
-                     let fail-pos-index = as(<integer>, err.failure-position);
+                     let fail-pos-index = as(<integer>, ext.parse-position);
                      format-trace("%s no match, exp. %s at stream pos %x",
-                                  ?"token-name", err.parse-expected, fail-pos-index);
+                                  ?"token-name", ext.parse-expected, fail-pos-index);
                   end if;
 
                   // Compute actual semantic value.
                   let value :: false-or(?token-type) = succ? & prop-value;
                   
                   // Call user-defined cleanup clause.
-                  "cleanup-" ## ?token-name (context, value, succ?, err);
+                  "cleanup-" ## ?token-name (context, value, succ?, ext);
 
                   // Store in cache. Get pos-cache again, because lower productions
                   // may have changed the cache at this position.
@@ -127,15 +130,15 @@ define macro parser-function
                         | make(<table>);
                   context.cache[start-pos-index] := pos-cache;
                   pos-cache[?#"token-name"] :=
-                        make(<parse-result>, value: value, failure: err,
+                        make(<parse-result>, value: value, extent: ext,
                              success-pos: succ? & stream.stream-position);
 
                   // Return values.
-                  values(value, succ?, err);
+                  values(value, succ?, ext);
                end with-attributes;
             end if;
       outdent-trace();
-      values(value, success?, failure);
+      values(value, success?, extent);
    end function
 }
 
@@ -146,8 +149,7 @@ define macro parser-function
 } => {
    define function "parse-" ## ?token-name
       (stream :: <positionable-stream>, context :: <parse-context>)
-   => (value :: false-or(?token-type), success? :: <boolean>,
-       failure :: false-or(<parse-failure>))
+   => (value :: false-or(?token-type), success? :: <boolean>, extent :: <parse-extent>)
       let start-pos = stream.stream-position;
       let start-pos-index = as(<integer>, start-pos);
 
@@ -160,7 +162,7 @@ define macro parser-function
       with-attributes (??parser-attr, ...)
 
          // Call parser rule to get product.
-         let (prod, succ? :: <boolean>, err :: false-or(<parse-failure>)) =
+         let (prod, succ? :: <boolean>, ext :: <parse-extent>) =
                ?token-name ## "-parser-rule" (stream, context);
 
          // Compute proposed semantic value.
@@ -177,28 +179,32 @@ define macro parser-function
                end if;
 
          if (after-error)
-            after-error.failure-position := after-error.failure-position | start-pos;
-            if (after-error.empty-description?)
+            after-error.parse-position := after-error.parse-position | start-pos;
+            if (after-error.empty-failure-lists?)
                after-error.parse-expected-list :=
                      list(format-to-string("valid %s", parser-label | "input"));
             end if;
             succ? := #f;
-            err := after-error;
+            ext := after-error;
          end if;
       
-         // Consolidate lower level error descriptions into a better
-         // description for this parser. Best description of errors
+         // Consolidate lower level extent descriptions into a better
+         // description for this parser. Best description of extents
          // below this parser is after-error or this parser's own label.
-         // Sibling errors will be resolved by higher-level choice
-         // operators. If no better error, leave err alone.
-         if (~succ? & ~after-error & parser-label)
-            err.parse-expected-list := list(parser-label);
-            err.parse-expected-other-than-list := #();
+         // Sibling descriptions will be resolved by higher-level choice
+         // operators. If no better description, leave ext alone.
+         if (~after-error & parser-label)
+            if (instance?(ext, <parse-success>))
+               ext.parse-success-list := list(parser-label);
+            else
+               ext.parse-expected-list := list(parser-label);
+               ext.parse-expected-other-than-list := #();
+            end if;
          end if;
 
          // Earlier logic that assumes later errors are always better,
          // in case I am wrong above.
-         // if (~succ? & err.failure-position = start-pos)
+         // if (~succ? & err.parse-position = start-pos)
          //    if (parser-label & ~after-error)
          //       err.parse-expected-list := list(parser-label);
          //       err.parse-expected-other-than-list := #();
@@ -211,20 +217,20 @@ define macro parser-function
             format-trace("%s matched stream pos %x-%x",
                          ?"token-name", start-pos-index, end-pos-index);
          else
-            let fail-pos-index = as(<integer>, err.failure-position);
+            let fail-pos-index = as(<integer>, ext.parse-position);
             format-trace("%s no match, exp. %s at stream pos %x",
-                         ?"token-name", err.parse-expected, fail-pos-index);
+                         ?"token-name", ext.parse-expected, fail-pos-index);
          end if;
 
          // Compute actual semantic value.
          let value :: false-or(?token-type) = succ? & prop-value;
 
          // Call user-defined cleanup clause.
-         "cleanup-" ## ?token-name (context, value, succ?, err);
+         "cleanup-" ## ?token-name (context, value, succ?, ext);
       
          // Return values.
          outdent-trace();
-         values(value, succ?, err);
+         values(value, succ?, ext);
       end with-attributes;
    end function
 }
@@ -315,13 +321,13 @@ end macro;
 define macro cleanup-function
    {  cleanup-function
          #key ?token-name:name, ?cleanup-ctxt:variable, ?cleanup-value:variable,
-         ?cleanup-succ:variable, ?cleanup-err:variable,
+         ?cleanup-succ:variable, ?cleanup-ext:variable,
          ?cleanup-body:expression,
          #all-keys;
       end
    } => {
       define function "cleanup-" ## ?token-name
-         (?cleanup-ctxt, ?cleanup-value, ?cleanup-succ, ?cleanup-err)
+         (?cleanup-ctxt, ?cleanup-value, ?cleanup-succ, ?cleanup-ext)
       => ()
          ?cleanup-body
       end function
@@ -337,7 +343,7 @@ define macro cleanup-function
 end macro;
 
 
-define inline function do-nothing (#rest anything) => (false :: singleton(#f))
+define function do-nothing (#rest anything) => (false :: singleton(#f))
    #f
 end function;
 

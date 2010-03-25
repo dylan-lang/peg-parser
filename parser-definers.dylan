@@ -19,9 +19,9 @@ convenience, you may write the parser with only one return value.
 VALUES:
   product  - Required.
   success? - Optional. If omitted and 'product' is true, defaults to #t.
-  error    - Optional. If omitted or #f and 'success?' is #f, an appropriate
-             error will be created. A missing description or position will be
-             filled in according to the rollback position or label.
+  extent   - Optional. If omitted or #f, an appropriate <parse-extent> will be
+             created. A missing description or position will be filled in
+             according to the rollback position or label.
 
 Here are two equivalent rule parsers:
 
@@ -36,13 +36,13 @@ end
 [code]
 define parser-method char (stream, context)
 => (char :: false-or(<character>), success? :: <boolean>,
-    error :: false-or(<parse-failure>))
+    extent :: false-or(<parse-extent>))
   label "character";
   let ch = read-element(stream, on-end-of-stream: #f);
   if (ch)
     values(ch, #t, #f)
   else
-    values(#f, #f, make(<parse-failure>))
+    values(#f, #f, make(<parse-extent>))
   end if
 end
 [end code]
@@ -75,34 +75,42 @@ define macro parser-method-definer
    {  define parser-method ?token-name:name
          (?stream:name, ?context-name:name :: ?context-type:expression)
       => (?res:name :: ?res-type:expression, ?succ:name :: ?succ-type:expression,
-          ?err:name :: ?err-type:expression)
+          ?ext:name :: ?ext-type:expression)
          label ?label:expression;
          ?:body
       end
    } => {
       define function "parse-" ## ?token-name
          (?stream :: <positionable-stream>, ?context-name :: ?context-type)
-      => (?res :: ?res-type, ?succ :: <boolean>, ?err :: false-or(<parse-failure>))
+      => (?res :: ?res-type, ?succ :: <boolean>, ?ext :: <parse-extent>)
          indent-trace();
          format-trace("%s...", ?"token-name");
          let pos = ?stream.stream-position;
-         let (?res :: ?res-type, ?succ :: <boolean>, ?err :: false-or(<parse-failure>)) = 
+         let (?res :: ?res-type, ?succ :: <boolean>, ?ext :: false-or(<parse-extent>)) = 
                ?body;
 
          // Default the values returned by ?body.
          if (?res & ?succ = #f)
             ?succ := #t;
          end if;
-         if (?succ = #f & ?err = #f)
-            ?err := make(<parse-failure>, expected: ?label, position: pos);
+         if (?ext = #f)
+            if (?succ)
+               ?ext := make(<parse-success>, success: ?label, position: pos)
+            else
+               ?ext := make(<parse-failure>, expected: ?label, position: pos)
+            end if
          end if;
-         if (?err)
-            if (?err.empty-description?)
-               ?err.parse-expected-list := list(as(<string>, ?label));
-            end if;
-            if (?err.failure-position = #f)
-               ?err.failure-position := pos
-            end if;
+         if (instance?(?ext, <parse-success>))
+            if (?ext.parse-success-list.empty?)
+               ?ext.parse-success-list := list(as(<string>, ?label))
+            end if
+         else
+            if (?ext.empty-failure-lists?)
+               ?ext.parse-expected-list := list(as(<string>, ?label))
+            end if
+         end if;
+         if (?ext.parse-position = #f)
+            ?ext.parse-position := pos
          end if;
 
          if (?succ)
@@ -111,10 +119,10 @@ define macro parser-method-definer
          else
             ?stream.stream-position := pos;
             format-trace("%s no match, exp. %s at stream pos %x",
-                         ?"token-name", ?err.parse-expected, ?err.failure-position);
+                         ?"token-name", ?ext.parse-expected, ?ext.parse-position);
          end if;
          outdent-trace();
-         values(?succ & ?res, ?succ, ?err);
+         values(?succ & ?res, ?succ, ?ext);
       end function
    }
 end macro;
@@ -242,8 +250,7 @@ The "cleanup" clause has the following arguments:
    'value'     - The semantic value, or #f if the parser did not succeed.
    'success?'  - An instance of <boolean>, indicating whether the parser
                  succeeded. Parsers may succeed even if no product results.
-   'error'     - An instance of <parse-failure> or #f. A <parse-failure> may be
-                 returned even if the parser succeeds.
+   'extent'    - An instance of <parse-extent>.
 
 [code]
 define parser t2 (<token>)
@@ -271,7 +278,7 @@ define parser t
     // parser, but the local variable 'tokens' will be the product of
     // many(t2).
     ...
-  cleanup (context, value, success?, err)
+  cleanup (context, value, success?, extent)
     // You can adjust context in either clause. Invalidate entire cache if
     // the adjustment will cause something to parse differently.
     context.tried-t? := #t;
@@ -327,7 +334,7 @@ define macro parser-definer
    //    Zero or one    cleanup-ctxt:  (name) :: (type)
    //       as above    cleanup-value: (name) :: (type)
    //       as above    cleanup-succ:  (name) :: (type)
-   //       as above    cleanup-err:   (name) :: (type)
+   //       as above    cleanup-ext:   (name) :: (type)
    //       as above    cleanup-body:  (expression)
    //
    // Class and yield style
@@ -544,11 +551,11 @@ afterwards-clause:
 
 // Optional cleanup clause.
 cleanup-clause:
-   {  cleanup (?context:variable, ?value:variable, ?succ:variable, ?err:variable)
+   {  cleanup (?context:variable, ?value:variable, ?succ:variable, ?ext:variable)
          ?:body
    } => {
       cleanup-ctxt: ?context, cleanup-value: ?value, cleanup-succ: ?succ,
-      cleanup-err: ?err, cleanup-body: ?body
+      cleanup-ext: ?ext, cleanup-body: ?body
    }
    { } => { }
 end macro;
