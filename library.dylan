@@ -2,7 +2,6 @@ module: dylan-user
 
 define library peg-parser
    use common-dylan;
-   use collection-extensions, import: { collection-utilities };
    use dynamic-binding;
    use io;
    export peg-parser, peg-parser-client;
@@ -13,8 +12,6 @@ define module peg-parser
    // from common-dylan
    use dylan;
    use common-extensions, exclude: { format-to-string };
-   // from collection-extensions
-   use collection-utilities, import: { key-exists? };
    // from dynamic-binding
    use dynamic-binding,
       rename: { with-dynamic-bindings => with-attributes,
