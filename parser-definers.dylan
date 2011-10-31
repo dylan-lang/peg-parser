@@ -181,7 +181,7 @@ define parser t
 end parser;
 [end code]
 
-defines a rule parser that returns #"t".
+This defines a rule parser that returns #"t".
 
 === Error handling ===
 

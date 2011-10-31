@@ -4,7 +4,7 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 
 
 /**          
-FUNCTION: rule parser
+FUNCTION: Rule parser
 ---------------------
 SYNOPSIS: A function that partially parses a stream according to a rule.
 
@@ -53,7 +53,8 @@ VALUES:
 
 /**
 SYNOPSIS: Builds a rule parser matching a sequence of elements.
-          Equivalent to PEG "p1 p2" operation.
+DISCUSSION:
+   Equivalent to PEG "p1 p2" operation.
 ARGUMENTS:
    #rest sub-rules - A series of rule parsers, all of which must succeed
                      for the returned parser to succeed.
@@ -90,7 +91,8 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser matching one of several elements.
-          Equivalent to PEG "p1 / p2" operation.
+DISCUSSION:
+   Equivalent to PEG "p1 / p2" operation.
 ARGUMENTS:
    #rest sub-rules - A series of rule parsers, the first of which to
                      succeed supplies the parser's product.
@@ -126,7 +128,8 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser matching one or more elements.
-          Equivalent to PEG "p1+" operation.
+DISCUSSION:
+   Equivalent to PEG "p1+" operation.
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
@@ -163,7 +166,8 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser matching zero or one element.
-          Equivalent to PEG "p1?" operation.
+DISCUSSION:
+   Equivalent to PEG "p1?" operation.
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
@@ -183,7 +187,8 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser matching zero or more elements.
-          Equivalent to PEG "p1*" operation.
+DISCUSSION:
+   Equivalent to PEG "p1*" operation.
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
@@ -197,7 +202,8 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser matching all elements or none of them.
-          Equivalent to PEG "(p1 p2)?" operation.
+DISCUSSION:
+   Equivalent to PEG "(p1 p2)?" operation.
 ARGUMENTS:
    #rest sub-rules - A series of rule parsers, all of which must match
                      for this parser to match.
@@ -212,7 +218,9 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser matching one of the specified elements or
-none of them. Equivalent to PEG "(p1 / p2)?" operation.
+   none of them.
+DISCUSSION:
+   Equivalent to PEG "(p1 / p2)?" operation.
 ARGUMENTS:
    #rest sub-rules - A series of rule parsers.
 VALUES:
@@ -225,8 +233,10 @@ end function;
 
 
 /**
-SYNOPSIS: Builds a rule parser that looks ahead to match the sub-rule
-without consuming any elements. Equivalent to PEG "&p1" operation.
+SYNOPSIS: Builds a rule parser that looks ahead to match the sub-rule without
+   consuming any elements.
+DISCUSSION:
+   Equivalent to PEG "&p1" operation.
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
@@ -254,8 +264,9 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser that looks ahead to ensure the sub-rule
-does not match, but does not consume any elements in doing so.
-Equivalent to PEG "!p1" operation.
+   does not match, but does not consume any elements in doing so.
+DISCUSSION:
+   Equivalent to PEG "!p1" operation.
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
@@ -291,8 +302,9 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser that does not consume any input and always
-succeeds, returning a constant semantic value. Useful for distinguishing
-and aligning parallel token sequences.
+   succeeds, returning a constant semantic value.
+DISCUSSION:
+   Useful for distinguishing and aligning parallel token sequences.
 ARGUMENTS:
    product - An instance of <object>.
 VALUES:
@@ -310,9 +322,11 @@ end function;
 
 /**
 SYNOPSIS: Builds a rule parser that executes the sub-rule but attempts to
-prevent 'combine-extents' from affecting its caller's existing <parse-extent>.
-This rule is intended for use with a fallback element in a 'choice' rule that
-ignores a parse failure and continues.
+   prevent 'combine-extents' from affecting its caller's existing
+   '<parse-extent>'.
+DISCUSSION:
+   This rule is intended for use with a fallback element in a 'choice' rule that
+   ignores a parse failure and continues.
 ARGUMENTS:
   rule - A rule parser.
 VALUES:

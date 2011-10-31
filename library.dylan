@@ -7,7 +7,7 @@ define library peg-parser
    export peg-parser, peg-parser-client;
 end library;
 
-// Synopsis: Module for parser creation.
+/// Synopsis: Module for parser creation.
 define module peg-parser
    // from common-dylan
    use dylan;

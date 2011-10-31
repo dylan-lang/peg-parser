@@ -1,3 +1,5 @@
+=== Library: Peg-parser ===
+
 This is a memoizing (or, more correctly, caching) recursive descent parser
 that handles attributed parsing expression grammars (PEGs), as described at
 http://en.wikipedia.org/wiki/Parsing_expression_grammar.
