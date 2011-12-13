@@ -1,9 +1,9 @@
 MAKEFILE_DIR = $(lastword $(dir $(MAKEFILE_LIST)))
-BASE_LIBDIR = $(abspath $(MAKEFILE_DIR)/../..)
+BASE_LIBDIR = $(abspath $(MAKEFILE_DIR)/..)
 
 src = *.dylan
 
-libs =	-L$(BASE_LIBDIR)/utilities/dynamic-binding
+libs =	-L$(BASE_LIBDIR)/dynamic-binding
 
 peg-parser: peg-parser.lid $(src)
 	d2c $(libs) peg-parser.lid
