@@ -106,7 +106,7 @@ define parser-method digit (stream, context)
    label "digit";
    let char = read-element(stream, on-end-of-stream: #f);
    case
-      char & char.digit? => char;
+      char & char.decimal-digit? => char;
       otherwise => #f;
    end case;
 end parser-method;
