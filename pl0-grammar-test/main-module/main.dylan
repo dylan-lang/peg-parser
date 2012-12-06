@@ -17,12 +17,12 @@ define function main(name, arguments)
       else
          format-out("Failure\n");
       end if;
-      
+
       if (failure)
          format-out("Parsed to %x, expected %s\n",
                     failure.parse-position, failure.parse-expected);
       end if;
-      
+
       for (count keyed-by parser in context.parser-cache-hits)
          format-out("%5d %s\n", count, parser);
       end for;

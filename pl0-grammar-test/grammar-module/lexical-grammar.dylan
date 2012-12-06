@@ -14,14 +14,14 @@ parse-items:
             label format-to-string("\"%s\"", ?expression);
             read-matching-string(stream, ?expression);
          end parser-method;
-      
+
          define parser "lex-" ## ?name (<lexeme>)
             rule seq("lit-" ## ?name, ?sep) => tokens;
             inherited slot text = tokens[0];
          afterwards (context, tokens, result, start-pos, end-pos)
             result.parse-end := tokens.last.parse-start;
          end parser;
-         
+
          ... }
    { } => { }
 end macro;
@@ -54,7 +54,7 @@ define lexemes
    \STAR        = "*"         nil-sep;
    \SLASH       = "/"         nil-sep;
    \LF-PAREN    = "("         nil-sep;
-   \RT-PAREN    = ")"         nil-sep;  
+   \RT-PAREN    = ")"         nil-sep;
 end lexemes;
 
 define parser lex-IDENT (<lexeme>)
@@ -69,7 +69,7 @@ define parser lex-NUMBER (<lexeme>)
    inherited slot text = as(<string>, tokens[0]);
 afterwards (context, tokens, result, start-pos, end-pos)
    result.parse-end := tokens.last.parse-start;
-end; 
+end;
 
 define parser nil-sep (<token>)
    rule opt-space => token;

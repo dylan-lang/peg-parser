@@ -28,21 +28,21 @@ define module peg-parser
    export
       <parse-context>, look-ahead?,
       parser-cache-hits, invalidate-parser-cache, *parser-cache-hits*;
-      
+
    export
       parser-definer, parser-method-definer,
       <parse-extent>, <parse-success>, <parse-failure>, parse-position,
       parse-expected-list, parse-expected-other-than-list, parse-success-list,
       parse-expected, combine-extents,
       <token>, parse-start, parse-end, parse-start-setter, parse-end-setter;
-   
+
    export
       seq, choice, many, opt, req-next, not-next, nil, skip,
       opt-seq, opt-choice, opt-many;
 
    export
       collect-subelements, *parser-trace*;
-end module;   
+end module;
 
 /// Synopsis: Simplified module for parser usage.
 define module peg-parser-client

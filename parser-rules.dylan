@@ -3,7 +3,7 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
           http://en.wikipedia.org/wiki/Parsing_expression_grammar
 
 
-/**          
+/**
 FUNCTION: Rule parser
 ---------------------
 IN MODULE: peg-parser:peg-parser
@@ -135,7 +135,7 @@ ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
    rule-parser - A rule parser returning a '<sequence>' containing the
-                 sub-rule's products. 
+                 sub-rule's products.
 **/
 define function many (sub-rule :: <function>) => (rule-parser :: <function>)
    local method parse-many
@@ -194,7 +194,7 @@ ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
    rule-parser - A rule parser returning a '<sequence>' containing the
-                 sub-rule's products, or #f if the elements are not present. 
+                 sub-rule's products, or #f if the elements are not present.
 **/
 define function opt-many (sub-rule :: <function>) => (rule-parser :: <function>)
    opt(many(sub-rule))

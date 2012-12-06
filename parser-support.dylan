@@ -105,7 +105,7 @@ define abstract class <parse-extent> (<object>)
    slot parse-position :: false-or(type-union(<integer>, <stream-position>)) = #f,
       init-keyword: #"position";
 end class;
-   
+
 
 /**
 SYNOPSIS: Indicates furthest successful parse.
@@ -129,7 +129,7 @@ define method initialize
             add-new!(obj.parse-success-list, success, test: \=);
    end if;
 end method;
-   
+
 
 /**
 SYNOPSIS: Indicates why a parser did not parse further than it did.
@@ -169,7 +169,7 @@ define method initialize
    end if;
 end method;
 
-define method empty-failure-lists? (err :: <parse-failure>) 
+define method empty-failure-lists? (err :: <parse-failure>)
 => (empty? :: <boolean>)
    err.parse-expected-list.empty? & err.parse-expected-other-than-list.empty?
 end method;
@@ -199,7 +199,7 @@ define method parse-expected (err :: <parse-failure>) => (string :: <string>)
                       err.parse-expected-other-than-list.first,
                       err.parse-expected-other-than-list.tail);
    end unless;
-   
+
    case
       ~exp.empty? & ~unexp.empty? =>
          concatenate(exp, " and not ", unexp);

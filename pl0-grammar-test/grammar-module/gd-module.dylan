@@ -17,20 +17,20 @@ define module PL0-grammar
    use peg-parser;
 
    export parse-program;
-   
+
    export
-      <lex-EQUAL-token>,    
-      <lex-GT-token>,         
-      <lex-GTE-token>,        
-      <lex-HASH-token>,       
+      <lex-EQUAL-token>,
+      <lex-GT-token>,
+      <lex-GTE-token>,
+      <lex-HASH-token>,
       <lex-IDENT-token>,
-      <lex-LT-token>,         
-      <lex-LTE-token>,        
-      <lex-MINUS-token>,      
+      <lex-LT-token>,
+      <lex-LTE-token>,
+      <lex-MINUS-token>,
       <lex-NUMBER-token>,
-      <lex-PLUS-token>,       
-      <lex-SLASH-token>,      
-      <lex-STAR-token>; 
+      <lex-PLUS-token>,
+      <lex-SLASH-token>,
+      <lex-STAR-token>;
 
    export
       <assignment-token>,
@@ -47,7 +47,7 @@ define module PL0-grammar
       <term-token>,
       <var-block-token>,
       <while-do-token>;
-   
+
    export
       text;
-end module;  
+end module;

@@ -24,15 +24,15 @@ define macro parser-function
       let cached-result = pos-cache & element(pos-cache, ?#"token-name", default: #f);
       let (value, success?, extent) =
             if (cached-result)
-               
+
                // Result cached. Return appropriate values.
-               
+
                // Note a hit.
                if (*parser-cache-hits*)
                   context.parser-cache-hits[?#"token-name"] :=
                         element(context.parser-cache-hits, ?#"token-name", default: 0) + 1;
                end if;
-               
+
                if (cached-result.success-pos)
                   stream.stream-position := cached-result.success-pos;
                   let end-pos-index = as(<integer>, cached-result.success-pos);
@@ -48,12 +48,12 @@ define macro parser-function
                   values(cached-result.semantic-value, #f, err);
                end if;
             else
-               
+
                // Result not cached. Call parser function.
-               
+
                let parser-label = ?label;
                format-trace("%s...", ?"token-name");
-               
+
                // Set up grammar attributes.
                with-attributes (??parser-attr, ...)
 
@@ -83,7 +83,7 @@ define macro parser-function
                      succ? := #f;
                      ext := after-error;
                   end if;
-      
+
                   // Consolidate lower level extent descriptions into a better
                   // description for this parser. Best description of extents
                   // below this parser is after-error or this parser's own label.
@@ -106,7 +106,7 @@ define macro parser-function
                   //       err.parse-expected-other-than-list := #();
                   //    end if;
                   // end if;
-      
+
                   // Log results of parsing.
                   if (succ?)
                      let end-pos-index = as(<integer>, stream.stream-position);
@@ -120,7 +120,7 @@ define macro parser-function
 
                   // Compute actual semantic value.
                   let value :: false-or(?token-type) = succ? & prop-value;
-                  
+
                   // Call user-defined cleanup clause.
                   "cleanup-" ## ?token-name (context, value, succ?, ext);
 
@@ -157,7 +157,7 @@ define macro parser-function
 
       let parser-label = ?label;
       format-trace("%s...", ?"token-name");
-      
+
       // Set up grammar attributes.
       with-attributes (??parser-attr, ...)
 
@@ -187,7 +187,7 @@ define macro parser-function
             succ? := #f;
             ext := after-error;
          end if;
-      
+
          // Consolidate lower level extent descriptions into a better
          // description for this parser. Best description of extents
          // below this parser is after-error or this parser's own label.
@@ -210,7 +210,7 @@ define macro parser-function
          //       err.parse-expected-other-than-list := #();
          //    end if;
          // end if;
-      
+
          // Log results of parsing.
          if (succ?)
             let end-pos-index = as(<integer>, stream.stream-position);
@@ -227,7 +227,7 @@ define macro parser-function
 
          // Call user-defined cleanup clause.
          "cleanup-" ## ?token-name (context, value, succ?, ext);
-      
+
          // Return values.
          outdent-trace();
          values(value, succ?, ext);
@@ -307,7 +307,7 @@ define macro after-function
          end block
       end function
    }
-   
+
    {  after-function
          #key ?token-name:name, #all-keys;
       end
@@ -332,7 +332,7 @@ define macro cleanup-function
          ?cleanup-body
       end function
    }
-   
+
    {  cleanup-function
          #key ?token-name:name, #all-keys;
       end
