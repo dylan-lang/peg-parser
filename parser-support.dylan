@@ -112,7 +112,7 @@ SYNOPSIS: Indicates furthest successful parse.
 **/
 
 define class <parse-success> (<parse-extent>)
-   /// A list of <string>. Descriptions of successful parses at
+   /// A list of '<string>'. Descriptions of successful parses at
    /// 'parse-position'.
    slot parse-success-list :: <list> = #(),
       init-keyword: #"success-list";
@@ -134,7 +134,8 @@ end method;
 /**
 SYNOPSIS: Indicates why a parser did not parse further than it did.
 
-This is a subclass of <warning>, but is not signaled by the PEG parser library.
+This is a subclass of '<warning>', but is not signaled by the PEG parser
+library.
 **/
 
 define class <parse-failure> (<warning>, <parse-extent>)
@@ -219,12 +220,12 @@ end method;
 
 
 /**
-SYNOPSIS: Merges two <parse-extent>s into one. A <parse-failure> is assumed to
-be more interesting than a <parse-success> and the rightmost of two extents is
-assumed to be the more relevant.
+SYNOPSIS: Merges two '<parse-extent>'s into one. A '<parse-failure>' is assumed
+to be more interesting than a '<parse-success>' and the rightmost of two extents
+is assumed to be the more relevant.
 
 If you write a manual parser that calls other parser functions, use this
-function to combine all the <parse-extent>s returned by those functions.
+function to combine all the '<parse-extent>'s returned by those functions.
 **/
 
 define generic combine-extents (a :: <parse-extent>, b :: <parse-extent>)
@@ -277,7 +278,7 @@ end method;
 /**
 SYNOPSIS: A token, a class containing information parsed from a stream.
 
-Subclasses of <token> are created by 'parser-definer', but tokens do not
+Subclasses of '<token>' are created by 'parser-definer', but tokens do not
 'need' [em] to be of this class. Any object may be returned by a 'rule
 parser', but the rule parsers created by 'seq', 'choice', etc. use #f to
 indicate an optional item not present or a rule that doesn't consume any
@@ -302,7 +303,7 @@ will print a trace.
 define variable *parser-trace* :: false-or(<stream>) = #f;
 
 
-// SYNOPSIS: Indents and prints a line, as a replacement for <indented-stream>
+// SYNOPSIS: Indents and prints a line, as a replacement for '<indented-stream>'
 // which is not implemented in Open Dylan.
 define inline function format-trace(format-string :: <string>, #rest params) => ()
    when (*parser-trace*)
@@ -338,10 +339,10 @@ returns
 : #[1, "blue"]
 
 ARGUMENTS:
-   sequences   - A collection of <sequence>, or #f.
-   index       - An <integer>. The element of each of 'sequences' that should
+   sequences   - A collection of '<sequence>', or #f.
+   index       - An '<integer>'. The element of each of 'sequences' that should
                  be pulled out into a new sequence.
-   default:    - An <object>. If the sequence doesn't have an element at
+   default:    - An '<object>'. If the sequence doesn't have an element at
                  'index', this value is used instead. Defaults to #f.
 VALUES:
    new-sequence - The resulting sequence. It is empty if 'sequences' is #f.

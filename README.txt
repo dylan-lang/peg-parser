@@ -2,7 +2,7 @@
 
 This is a memoizing (or, more correctly, caching) recursive descent parser
 that handles attributed parsing expression grammars (PEGs), as described at
-http://en.wikipedia.org/wiki/Parsing_expression_grammar.
+'http://en.wikipedia.org/wiki/Parsing_expression_grammar'.
 
 It isn't too tricky to use. Basically, a PEG can act as both a lexical and
 phrase grammar, and acts similarly to a forward-looking greedy regular

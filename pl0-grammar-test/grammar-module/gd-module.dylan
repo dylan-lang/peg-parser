@@ -10,8 +10,8 @@ define module PL0-grammar
    use print, import: {print-object, print};
    use pprint, import: {printing-logical-block, pprint-newline};
    // from string-extensions
-   use character-type;
-   use string-hacking, rename: {case-insensitive-equal => case-insensitive-equal?};
+   use character-type, rename: {digit? => decimal-digit?};
+   use string-hacking, rename: {case-insensitive-equal => string-equal-ic?};
    // from peg-parser
    use peg-parser-client, export: all;
    use peg-parser;
