@@ -86,20 +86,20 @@ define macro parser-method-definer
          indent-trace();
          format-trace("%s...", ?"token-name");
          let pos = ?stream.stream-position;
-         let (?res :: ?res-type, ?succ :: <boolean>, ?ext :: false-or(<parse-extent>)) = 
+         let (?res :: ?res-type, ?succ :: <boolean>, maybe-extent :: false-or(<parse-extent>)) = 
                ?body;
 
          // Default the values returned by ?body.
          if (?res & ?succ = #f)
             ?succ := #t;
          end if;
-         if (?ext = #f)
-            if (?succ)
-               ?ext := make(<parse-success>, success: ?label, position: pos)
-            else
-               ?ext := make(<parse-failure>, expected: ?label, position: pos)
-            end if
-         end if;
+         let ?ext :: <parse-extent> =
+               maybe-extent |
+               if (?succ)
+                  make(<parse-success>, success: ?label, position: pos)
+               else
+                  make(<parse-failure>, expected: ?label, position: pos)
+               end if;
          if (instance?(?ext, <parse-success>))
             if (?ext.parse-success-list.empty?)
                ?ext.parse-success-list := list(as(<string>, ?label))
