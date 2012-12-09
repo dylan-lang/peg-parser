@@ -19,7 +19,7 @@ convenience, you may write the parser with only one return value.
 VALUES:
   product  - Required.
   success? - Optional. If omitted and 'product' is true, defaults to #t.
-  extent   - Optional. If omitted or #f, an appropriate <parse-extent> will be
+  extent   - Optional. If omitted or #f, an appropriate '<parse-extent>' will be
              created. A missing description or position will be filled in
              according to the rollback position or label.
 
@@ -133,7 +133,7 @@ SYNOPSIS: Defines a rule parser and perhaps a token class for a given token.
 
 The macro takes three forms: class, yield, and symbol.
 
-=== Class form ===
+--- Class form ---
 
 This form creates a token class.
 
@@ -146,15 +146,16 @@ define parser t (<c>, <token>)
 end parser;
 [end code]
 
-defines a rule parser named parse-t and a token class named <t-token> which
-inherits from <c> and <token>. The superclass is optional, but the parentheses
-aren't. The parse-context clause is optional. <t-token> will have a slot named
-content (inherited from <c>) and a slot named more-content. When <t-token> is
-initialized, tokens gets set to the product of the rule `many(t2)`, context gets
-set to the parse context, content gets set to the expression `tokens[1]`, and
-more-content gets set to the expression `tokens[2]` (which must be a <string>).
+This defines a rule parser named `parse-t` and a token class named `<t-token>`
+which inherits from `<c>` and `<token>`. The superclass is optional, but the
+parentheses aren't. The `parse-context` clause is optional. `<t-token>` will
+have a slot named `content` (inherited from `<c>`) and a slot named
+`more-content`. When `<t-token>` is initialized, `tokens` gets set to the
+product of the rule `many(t2)`, `context` gets set to the parse context,
+`content` gets set to the expression `tokens[1]`, and `more-content` gets set to
+the expression `tokens[2]` (which must be a '<string>').
 
-=== Yield form ===
+--- Yield form ---
 
 Yield form returns a value.
 
@@ -166,12 +167,12 @@ define parser t :: <token>
 end parser;
 [end code]
 
-defines a rule parser that returns `tokens[1]` (which must be a <token>)
-directly, without defining a <t-token> class. The type specialization is
-optional, as is the parse-context clause. The yield expression may refer to
+This defines a rule parser that returns `tokens[1]` (which must be a '<token>')
+directly, without defining a `<t-token>` class. The type specialization is
+optional, as is the `parse-context` clause. The `yield` expression may refer to
 tokens and context.
 
-=== Symbol form ===
+--- Symbol form ---
 
 This form returns a token symbol.
 
@@ -183,12 +184,12 @@ end parser;
 
 This defines a rule parser that returns #"t".
 
-=== Error handling ===
+--- Error handling ---
 
-All three forms allow a label clause to appear before the rule. The label
-clause is a string that describes the result of the parser, and may be used to
-simplify the list of alternative possibilities that would otherwise be
-returned in the event of a parser failure.
+All three forms allow a label clause to appear before the rule. The label clause
+is a string that describes the result of the parser, and may be used to simplify
+the list of alternative possibilities that would otherwise be returned in the
+event of a parser failure.
 
 [code]
 define parser t
@@ -197,7 +198,7 @@ define parser t
 end parser;
 [end code]
 
-=== Context and attributes ===
+--- Context and attributes ---
 
 The context is the global parsing state. You can subclass it, but if you want
 to perform extra checking or something, you are better off using attributes.
@@ -212,10 +213,10 @@ attributes
 end parser;
 [end code]
 
-The t2-count and t2-present? attributes will be available to all parsers called
-directly or indirectly by parse-t via 'attr' and 'attr-setter'. These are
-renamed versions of the 'dynamic-binding' macros in the 'dynamic-binding'
-library.
+The `t2-count` and `t2-present?` attributes will be available to all parsers
+called directly or indirectly by `parse-t` via 'attr' and 'attr-setter'. These
+are renamed versions of the 'dynamic-binding' macros in the '::dynamic-binding'
+[qv] library.
 
 [code]
 let a = attr(t2-count);
@@ -228,7 +229,7 @@ Attributes are valid in all called parsers, in slot initialization expressions,
 and in afterwards and cleanup clauses. Attribute initialization expressions may
 refer to attributes defined earlier in the clause.
 
-=== Afterwards and cleanup ===
+--- Afterwards and cleanup ---
 
 All three forms allow two additional clauses, "afterwards" and "cleanup," that
 perform actions after the rule parser matches or fails to match. The
@@ -236,21 +237,22 @@ perform actions after the rule parser matches or fails to match. The
 clause is always executed.
 
 The "afterwards" clause has the following arguments:
-   'context'   - The context.
-   'product'   - The parse product.
-   'value'     - The semantic value.
-   'start-pos' - Stream position at the start of the parse.
-   'end-pos'   - Next stream position.
-   'fail:'     - A name. This will be bound to an exit function taking a
-                 <parse-failure> instance. Calling ihis causes the parse to
-                 fail even if it would have otherwise succeeded.
+   'context' [api]   - The context.
+   'product' [api]   - The parse product.
+   'value' [api]     - The semantic value.
+   'start-pos' [api] - Stream position at the start of the parse.
+   'end-pos' [api]   - Next stream position.
+   'fail:' [api]     - A name. This will be bound to an exit function taking a
+                       '<parse-failure>' instance. Calling this causes the parse
+                       to fail even if it would have otherwise succeeded.
 
 The "cleanup" clause has the following arguments:
-   'context'   - As above.
-   'value'     - The semantic value, or #f if the parser did not succeed.
-   'success?'  - An instance of <boolean>, indicating whether the parser
-                 succeeded. Parsers may succeed even if no product results.
-   'extent'    - An instance of <parse-extent>.
+   'context' [api]   - As above.
+   'value' [api]     - The semantic value, or #f if the parser did not succeed.
+   'success?' [api]  - An instance of '<boolean>', indicating whether the parser
+                       succeeded. Parsers may succeed even if no product
+                       results.
+   'extent' [api]    - An instance of '<parse-extent>'.
 
 [code]
 define parser t2 (<token>)
@@ -286,14 +288,14 @@ define parser t
 end parser;
 [end code]
 
-=== Caching ===
+--- Caching ---
 
-All three forms allow "caching" as a modifier, i.e. "define caching parser."
-It is better, performance-wise, to only cache certain important productions.
-The cache is kept in the <parse-context> instance and may be preallocated by
-supplying the 'cache-stream:' keyword to 'make'. Cache hit statistics are
-kept if *parser-cache-hits* is #t and can be retrieved by calling
-parser-cache-hits on the <parse-context> instance. This retrieves a table
+All three forms allow "caching" as a modifier, i.e. `define caching parser`. It
+is better, performance-wise, to only cache certain important productions. The
+cache is kept in the '<parse-context>' instance and may be preallocated by
+supplying the 'cache-stream:' keyword to 'make'. Cache hit statistics are kept
+if '*parser-cache-hits*' is #t and can be retrieved by calling
+'parser-cache-hits' on the '<parse-context>' instance. This retrieves a table
 containing productions and corresponding cache hits.
 
 If the context is altered in such a way to affect parsing, the cache should be

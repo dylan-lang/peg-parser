@@ -6,48 +6,49 @@ synopsis: Discussion and implementation of PEG parser rules, as described at
 /**          
 FUNCTION: Rule parser
 ---------------------
+IN MODULE: peg-parser:peg-parser
 SYNOPSIS: A function that partially parses a stream according to a rule.
 
 Rule parsers are created by the 'seq', 'choice', 'many', 'opt', 'opt-seq',
-'opt-choice', opt-many', 'req-next', 'not-next', and 'nil' functions used in
-'parser-definer' macros. They may also be created manually for efficiency
-or to support special behaviors via the 'parser-method-definer' macro.
+'opt-choice', 'opt-many', 'req-next', 'not-next', and 'nil' functions used in
+'parser-definer' macros. They may also be created manually for efficiency or to
+support special behaviors via the 'parser-method-definer' macro.
 
 Rule parsers must be named "parse-something" to work with the 'parser-definer'
-macro. If the parser fails to match or reaches end-of-stream, it must return
-#f for the 'product' and 'success?' values and roll back the position of the
-stream so that another parser may be tried.
+macro. If the parser fails to match or reaches end-of-stream, it must return #f
+for the 'product' and 'success?' values and roll back the position of the stream
+so that another parser may be tried.
 
-If the parser fails to match, it must return an instance of <parse-failure>
+If the parser fails to match, it must return an instance of '<parse-failure>'
 describing the expected or unexpected element that caused the parser to fail.
 
-If the parser succeeds, it may return an instance of <parse-success> or
-<parse-failure>. It should return an instance of <parse-failure> to describe
+If the parser succeeds, it may return an instance of '<parse-success>' or
+'<parse-failure>'. It should return an instance of '<parse-failure>' to describe
 errors that arose while parsing, but from which the parser backtracked and
 recovered. If there were no parse errors, recovered or otherwise, then the
-parser should return <parse-success>. Parse errors should be combined with
+parser should return '<parse-success>'. Parse errors should be combined with
 'combine-extents'.
 
-Conceptually, <parse-failure> instances describe why a parser did not parse
+Conceptually, '<parse-failure>' instances describe why a parser did not parse
 further than it did. If all parsers ultimately fail to match, one of these
-errors indicated a possible root cause. <Parse-success> instances describe the
+errors indicated a possible root cause. '<Parse-success>' instances describe the
 furthest the parser has parsed and are only relevant for 'not-next' parsers.
 
 All these behaviors are implemented automatically when using
 'parser-method-definer' or 'parser-definer' macros or the 'seq' etc. functions.
 
 ARGUMENTS:
-   stream   - An instance of <positionable-stream>.
+   stream   - An instance of '<positionable-stream>'.
    context  - A context object.
 
 VALUES:
-   product     - An instance of <sequence>, #f, or some other value
-                 (usually an instance of <token>), depending on the
+   product     - An instance of '<sequence>', #f, or some other value
+                 (usually an instance of '<token>'), depending on the
                  parser's rule(s). #f indicates no stream elements were
                  consumed or the token was not present.
-   success?    - An instance of <boolean>, indicating whether the parser
+   success?    - An instance of '<boolean>', indicating whether the parser
                  succeeded. Parsers may succeed even if no product results.
-   extent      - An instance of <parse-extent>.
+   extent      - An instance of '<parse-extent>'.
 **/
 
 
@@ -59,7 +60,7 @@ ARGUMENTS:
    #rest sub-rules - A series of rule parsers, all of which must succeed
                      for the returned parser to succeed.
 VALUES:
-   rule-parser - A rule parser returning a <sequence>. The sequence will
+   rule-parser - A rule parser returning a '<sequence>'. The sequence will
                  contain the sub-rules' products.
 **/
 define function seq (#rest sub-rules) => (rule-parser :: <function>)
@@ -133,7 +134,7 @@ DISCUSSION:
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
-   rule-parser - A rule parser returning a <sequence> containing the
+   rule-parser - A rule parser returning a '<sequence>' containing the
                  sub-rule's products. 
 **/
 define function many (sub-rule :: <function>) => (rule-parser :: <function>)
@@ -192,7 +193,7 @@ DISCUSSION:
 ARGUMENTS:
    sub-rule - A rule parser.
 VALUES:
-   rule-parser - A rule parser returning a <sequence> containing the
+   rule-parser - A rule parser returning a '<sequence>' containing the
                  sub-rule's products, or #f if the elements are not present. 
 **/
 define function opt-many (sub-rule :: <function>) => (rule-parser :: <function>)
@@ -208,7 +209,7 @@ ARGUMENTS:
    #rest sub-rules - A series of rule parsers, all of which must match
                      for this parser to match.
 VALUES:
-   rule-parser - A rule parser returning #f or a <sequence> containing
+   rule-parser - A rule parser returning #f or a '<sequence>' containing
                  all sub-rules' products.
 **/
 define function opt-seq (#rest sub-rules) => (rule-parser :: <function>)
@@ -306,7 +307,7 @@ SYNOPSIS: Builds a rule parser that does not consume any input and always
 DISCUSSION:
    Useful for distinguishing and aligning parallel token sequences.
 ARGUMENTS:
-   product - An instance of <object>.
+   product - An instance of '<object>'.
 VALUES:
    rule-parser - A rule parser returning 'product'.
 **/
@@ -328,9 +329,9 @@ DISCUSSION:
    This rule is intended for use with a fallback element in a 'choice' rule that
    ignores a parse failure and continues.
 ARGUMENTS:
-  rule - A rule parser.
+   rule - A rule parser.
 VALUES:
-  rule-parser - As 'rule', but does not affect caller's extent if successful.
+   rule-parser - As 'rule', but does not affect caller's extent if successful.
 */
 define function skip (rule :: <function>)
 => (rule-parser :: <function>)
