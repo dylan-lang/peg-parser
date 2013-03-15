@@ -198,11 +198,11 @@ define parser t
 end parser;
 [end code]
 
---- Context and attributes ---
+--- Parse context and attributes ---
 
-The context is the global parsing state. You can subclass it, but if you want
-to perform extra checking or something, you are better off using attributes.
-All three forms allow an attributes clause.
+The parse context is the global parsing state. You can subclass it, but if you
+want to perform extra checking or something, you are better off using
+attributes. All three forms allow an attributes clause.
 
 [code]
 define parser t
@@ -580,8 +580,13 @@ define macro class-style-parser
       initialize-specifier ?clauses end;
 
       // Define the parser rule by evaluating all the 'seq' etc. functions.
-      define constant ?token-name ## "-parser-rule" = ?rule;
-
+      define function ?token-name ## "-parser-rule"
+         (stream :: <positionable-stream>, context :: ?context-type)
+      => (product, success? :: <boolean>, extent :: <parse-extent>)
+         let evaluated-rule = ?rule;
+         evaluated-rule(stream, context)
+      end function;
+      
       // Define the parser value as a <token> subclass, slots initialized by
       // 'initialize' function above.
       define inline function ?token-name ## "-parser-value"
@@ -614,8 +619,13 @@ define macro yield-style-parser
       end
    } => {
       // Define the parser rule by evaluating all the 'seq' etc. functions.
-      define constant ?token-name ## "-parser-rule" = ?rule;
-
+      define function ?token-name ## "-parser-rule"
+         (stream :: <positionable-stream>, context :: ?context-type)
+      => (product, success? :: <boolean>, extent :: <parse-extent>)
+         let evaluated-rule = ?rule;
+         evaluated-rule(stream, context)
+      end function;
+      
       // Define the parser value as the result of the yield expression.
       define function ?token-name ## "-parser-value"
          (?context-name :: ?context-type, ?product-name :: ?product-type,
@@ -643,8 +653,13 @@ define macro symbol-style-parser
       end
    } => {
       // Define the parser rule by evaluating all the 'seq' etc. functions.
-      define constant ?token-name ## "-parser-rule" = ?rule;
-
+      define function ?token-name ## "-parser-rule"
+         (stream :: <positionable-stream>, context :: <parse-context>)
+      => (product, success? :: <boolean>, extent :: <parse-extent>)
+         let evaluated-rule = ?rule;
+         evaluated-rule(stream, context)
+      end function;
+      
       // Define the parser value as a symbol, same as token name.
       define inline function ?token-name ## "-parser-value"
          (context, product, start-pos, end-pos)
