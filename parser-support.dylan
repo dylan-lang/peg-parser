@@ -352,12 +352,12 @@ define function collect-subelements
    (sequences :: false-or(<collection>), index :: <integer>, #key default = #f)
 => (new-sequence :: <sequence>)
    if (sequences)
-      map-as(<deque>,
+      map-as(<vector>,
              method (sequence :: <sequence>) => (item :: <object>)
                 element(sequence, index, default: default)
              end,
              sequences)
    else
-      #()
+      #[]
    end if
 end function;
