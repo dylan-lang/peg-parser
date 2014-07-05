@@ -39,7 +39,8 @@ define caching parser opt-space
    rule opt(space);
 end;
 
-// Token separators keep tokens that begin identically from being confused.
+// This list of token separators keep tokens that begin identically from being
+// confused.
 define parser word-sep              rule not-next(any-character) end;
 define parser pound-word-sep        rule nil(#f) end;
 define parser colon-sep             rule not-next(choice(colon, equal)) end;  
