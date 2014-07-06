@@ -12,9 +12,9 @@ This library allows for simple rules-based declarations and also custom parser
 functions (you'll need some of these to get characters and literals from the
 stream).
 
-The parser can simplify and consolidate syntax elements in an upwards
-direction along the syntax tree via token class slots, and downward or across
-the syntax tree via attributes. You can also define a context class to keep
-global information for later semantic processing.
+The parser can simplify and consolidate syntax elements in an upwards direction
+along the syntax tree via token class slots, and downward or across the syntax
+tree via dynamically-bound attributes. You can also define a context class to
+keep global information for later semantic processing.
 
 -- Dustin Voss

@@ -55,7 +55,7 @@ define macro parser-function
                format-trace("%s...", ?"token-name");
 
                // Set up grammar attributes.
-               with-attributes (??parser-attr, ...)
+               dynamic-bind (??parser-attr, ...)
 
                   // Call parser rule to get product.
                   let (prod, succ? :: <boolean>, ext :: <parse-extent>) =
@@ -135,7 +135,7 @@ define macro parser-function
 
                   // Return values.
                   values(value, succ?, ext);
-               end with-attributes;
+               end dynamic-bind;
             end if;
       outdent-trace();
       values(value, success?, extent);
@@ -159,7 +159,7 @@ define macro parser-function
       format-trace("%s...", ?"token-name");
 
       // Set up grammar attributes.
-      with-attributes (??parser-attr, ...)
+      dynamic-bind (??parser-attr, ...)
 
          // Call parser rule to get product.
          let (prod, succ? :: <boolean>, ext :: <parse-extent>) =
@@ -231,7 +231,7 @@ define macro parser-function
          // Return values.
          outdent-trace();
          values(value, succ?, ext);
-      end with-attributes;
+      end dynamic-bind;
    end function
 }
 end macro;
