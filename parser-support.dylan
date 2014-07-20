@@ -60,8 +60,8 @@ define variable *parser-cache-hits* :: <boolean> = #f;
 /**
 SYNOPSIS: Clears parsing cache.
 
-Call this after a parse-affecting context or attribute change to remove
-invalid cached parse results.
+Call this after a parse-affecting context or dynamically-bound attribute change
+to remove invalid cached parse results.
 **/
 
 define method invalidate-parser-cache
@@ -282,7 +282,7 @@ Subclasses of '<token>' are created by 'parser-definer', but tokens do not
 'need' [em] to be of this class. Any object may be returned by a 'rule
 parser', but the rule parsers created by 'seq', 'choice', etc. use #f to
 indicate an optional item not present or a rule that doesn't consume any
-characters (i.e. all look-ahead rules).
+characters (e.g. all look-ahead rules).
 **/
 
 define open abstract class <token> (<object>)
@@ -352,12 +352,12 @@ define function collect-subelements
    (sequences :: false-or(<collection>), index :: <integer>, #key default = #f)
 => (new-sequence :: <sequence>)
    if (sequences)
-      map-as(<deque>,
+      map-as(<vector>,
              method (sequence :: <sequence>) => (item :: <object>)
                 element(sequence, index, default: default)
              end,
              sequences)
    else
-      #()
+      #[]
    end if
 end function;

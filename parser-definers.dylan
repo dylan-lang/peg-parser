@@ -13,13 +13,13 @@ features described for rule parsers. The main part of the parser is Dylan code
 supplied by you, but the first line must be a label.
 
 Like all rule parsers, the parser function created by this macro returns three
-values: the parse product or #f, a success flag, and an error. However, as a
+values: the parse product or ``#f``, a success flag, and an error. However, as a
 convenience, you may write the parser with only one return value.
 
 VALUES:
   product  - Required.
-  success? - Optional. If omitted and 'product' is true, defaults to #t.
-  extent   - Optional. If omitted or #f, an appropriate '<parse-extent>' will be
+  success? - Optional. If omitted and 'product' is true, defaults to ``#t``.
+  extent   - Optional. If omitted or ``#f``, an appropriate '<parse-extent>' will be
              created. A missing description or position will be filled in
              according to the rollback position or label.
 
@@ -138,37 +138,37 @@ The macro takes three forms: class, yield, and symbol.
 This form creates a token class.
 
 [code]
-define parser t (<c>, <token>)
-  rule many(t2) => tokens;
+define parser foo (<c>, <token>)
+  rule many(baz) => tokens;
   parse-context => context;
   inherited slot content = tokens[1];
   slot more-content :: <string> = tokens[2];
 end parser;
 [end code]
 
-This defines a rule parser named `parse-t` and a token class named `<t-token>`
-which inherits from `<c>` and `<token>`. The superclass is optional, but the
-parentheses aren't. The `parse-context` clause is optional. `<t-token>` will
-have a slot named `content` (inherited from `<c>`) and a slot named
-`more-content`. When `<t-token>` is initialized, `tokens` gets set to the
-product of the rule `many(t2)`, `context` gets set to the parse context,
-`content` gets set to the expression `tokens[1]`, and `more-content` gets set to
-the expression `tokens[2]` (which must be a '<string>').
+This defines a rule parser named `parse-foo` and a token class named
+`<foo-token>` which inherits from `<c>` and `<token>`. The superclass is
+optional, but the parentheses aren't. The `parse-context` clause is optional.
+`<foo-token>` will have a slot named `content` (inherited from `<c>`) and a
+slot named `more-content`. When `<foo-token>` is initialized, `tokens` gets set
+to the product of the rule `many(baz)`, `context` gets set to the parse
+context, `content` gets set to the expression `tokens[1]`, and `more-content`
+gets set to the expression `tokens[2]` (which must be a '<string>').
 
 --- Yield form ---
 
 Yield form returns a value.
 
 [code]
-define parser t :: <token>
-  rule many(t2) => tokens;
+define parser foo :: <token>
+  rule many(baz) => tokens;
   parse-context => context;
   yield tokens[1];
 end parser;
 [end code]
 
 This defines a rule parser that returns `tokens[1]` (which must be a '<token>')
-directly, without defining a `<t-token>` class. The type specialization is
+directly, without defining a `<foo-token>` class. The type specialization is
 optional, as is the `parse-context` clause. The `yield` expression may refer to
 tokens and context.
 
@@ -177,12 +177,12 @@ tokens and context.
 This form returns a token symbol.
 
 [code]
-define parser t
-  rule many(t2)
+define parser foo
+  rule many(baz)
 end parser;
 [end code]
 
-This defines a rule parser that returns #"t".
+This defines a rule parser that returns ``#"foo"``.
 
 --- Error handling ---
 
@@ -192,42 +192,43 @@ the list of alternative possibilities that would otherwise be returned in the
 event of a parser failure.
 
 [code]
-define parser t
-  label "series of t2";
-  rule many(t2)
+define parser foo
+  label "series of baz";
+  rule many(baz)
 end parser;
 [end code]
 
---- Parse context and attributes ---
+--- Parse context and dynamically-bound attributes ---
 
-The parse context is the global parsing state. You can subclass it, but if you
-want to perform extra checking or something, you are better off using
-attributes. All three forms allow an attributes clause.
+The parse context is the global parsing state. You can subclass it and add
+slots to represent additional state, but if you want to perform extra checking
+or something, you are better off using dynamically-bound attributes. All three
+macro forms allow a "dynamically-bind" clause.
 
 [code]
-define parser t
-  rule many(t2);
-attributes
-  t2-count :: <integer> = 0,
-  t2-present? :: <boolean> = #t;
+define thread variable *baz-count* :: <integer> = -1;
+define thread variable *baz-present?* :: <boolean> = #f;
+
+define parser foo
+  rule many(baz);
+dynamically-bind
+  *baz-count* :: <integer> = 0,
+  *baz-present?* :: <boolean> = #t;
 end parser;
 [end code]
 
-The `t2-count` and `t2-present?` attributes will be available to all parsers
-called directly or indirectly by `parse-t` via 'attr' and 'attr-setter'. These
-are renamed versions of the 'dynamic-binding' macros in the '::dynamic-binding'
-[qv] library.
+The `*baz-count*` and `*baz-present?*` variables are bound to ``0`` and ``#t``
+respectively within the dynamic scope of `parse-foo`—that is, within all
+parsers called directly or indirectly by `parse-foo`. When `parse-foo`
+completes, those bindings will revert to their previous values (in this case,
+``-1`` and ``#f``). Dynamically-bound attributes are implemented using the
+`dynamic-bind` macro from the `threads` module.
 
-[code]
-let a = attr(t2-count);
-let a = attr(t2-count, default: #f);
-attr(t2-count) := 3;
-attr-setter(3, t2-count);
-[end code]
-
-Attributes are valid in all called parsers, in slot initialization expressions,
-and in afterwards and cleanup clauses. Attribute initialization expressions may
-refer to attributes defined earlier in the clause.
+The dynamically-bind clause is in effect during all called parsers, in slot
+initialization expressions, in yield expressions, and in afterwards and cleanup
+clauses. It is not in effect during label evaluation. The initialization
+expressions in the clause may refer to dynamic bindings defined earlier in the
+clause.
 
 --- Afterwards and cleanup ---
 
@@ -237,71 +238,68 @@ perform actions after the rule parser matches or fails to match. The
 clause is always executed.
 
 The "afterwards" clause has the following arguments:
-   'context' [api]   - The context.
-   'product' [api]   - The parse product.
-   'value' [api]     - The semantic value.
-   'start-pos' [api] - Stream position at the start of the parse.
-   'end-pos' [api]   - Next stream position.
-   'fail:' [api]     - A name. This will be bound to an exit function taking a
-                       '<parse-failure>' instance. Calling this causes the parse
-                       to fail even if it would have otherwise succeeded.
+   `context`   - The context.
+   `product`   - The parse product.
+   `value`     - The semantic value.
+   `start-pos` - Stream position at the start of the parse.
+   `end-pos`   - Next stream position.
+   `fail:`     - A name. This will be bound to an exit function taking a
+                 '<parse-failure>' instance. Calling this causes the parse to
+                 fail even if it would have otherwise succeeded.
 
 The "cleanup" clause has the following arguments:
-   'context' [api]   - As above.
-   'value' [api]     - The semantic value, or #f if the parser did not succeed.
-   'success?' [api]  - An instance of '<boolean>', indicating whether the parser
-                       succeeded. Parsers may succeed even if no product
-                       results.
-   'extent' [api]    - An instance of '<parse-extent>'.
+   `context`   - As above.
+   `value`     - The semantic value, or #f if the parser did not succeed.
+   `success?`  - An instance of '<boolean>', indicating whether the parser
+                 succeeded. Parsers may succeed even if no product results.
+   `extent`    - An instance of '<parse-extent>'.
 
 [code]
-define parser t2 (<token>)
-  rule t3 => token;
-  slot t3-value = token.value;
+define parser baz (<token>)
+  rule frobozz => token;
+  slot frobozz-value = token.value;
   afterwards (context, token, value, start-pos, end-pos, fail-parse)
     // Executes if match is successful. 'token' is different from the one
-    // in the rule and slot clauses. Invalidate cache if attribute adjustment
-    // will cause something to parse differently.
-    let t2-count = attr(t2-count);
-    t2-count := t2-count + 1;
-    if (t2-count > $too-many)
+    // in the rule and slot clauses. Invalidate cache if dynamically-bound
+    // attribute adjustment will cause something to parse differently.
+    *baz-count* := *baz-count* + 1;
+    if (*baz-count* > $too-many)
       fail-parse(make(<parse-failure>, expected-other-than: "this many"))
     end if;
-    attr(t2-count) := t2-count;
     invalidate-parser-cache(context, from: end-pos);
 end parser;
 [end code]
 
 [code]
-define parser t
-  rule many(t2);
+define parser foo
+  rule many(baz);
   afterwards (context, tokens)
-    // The product of this parser is #"t" because this is a token symbol
+    // The product of this parser is #"foo" because this is a token symbol
     // parser, but the local variable 'tokens' will be the product of
-    // many(t2).
+    // many(baz).
     ...
   cleanup (context, value, success?, extent)
     // You can adjust context in either clause. Invalidate entire cache if
     // the adjustment will cause something to parse differently.
-    context.tried-t? := #t;
+    context.tried-foo? := #t;
     invalidate-parser-cache(context);
 end parser;
 [end code]
 
 --- Caching ---
 
-All three forms allow "caching" as a modifier, i.e. `define caching parser`. It
-is better, performance-wise, to only cache certain important productions. The
-cache is kept in the '<parse-context>' instance and may be preallocated by
+All three forms allow "caching" as a modifier, i.e. ``define caching parser``.
+It is better, performance-wise, to only cache certain important productions.
+The cache is kept in the '<parse-context>' instance and may be preallocated by
 supplying the 'cache-stream:' keyword to 'make'. Cache hit statistics are kept
-if '*parser-cache-hits*' is #t and can be retrieved by calling
+if '*parser-cache-hits*' is ``#t`` and can be retrieved by calling
 'parser-cache-hits' on the '<parse-context>' instance. This retrieves a table
 containing productions and corresponding cache hits.
 
 If the context is altered in such a way to affect parsing, the cache should be
-invalidated completely because the context is global. If an attribute is
-altered in such a way to affect parsing, the cache should be invalidated from
-'end-pos' on (see 'Afterwards and cleanup').
+invalidated completely because the context is global. If a dynamically-bound
+attribute is altered in such a way to affect parsing, the cache should be
+invalidated from 'end-pos' on (see {Afterwards and cleanup}).
 
 Once a parser's result is cached, that parser's "afterwards" and "cleanup"
 clauses are never re-evaluated at the cached location. For this reason, it is
@@ -528,7 +526,9 @@ body-clauses:
 
 // Optional attributes clause, then the afterwards/cleanup clauses.
 attributes-clause:
-   { attributes ?attributes-list; ?afterwards-clause }
+   // BUGFIX: I'd like to use "dynamic-bind" here instead of "dynamically-bind",
+   // but the compiler apparently confuses it with the actual macro invocation.
+   { dynamically-bind ?attributes-list; ?afterwards-clause }
       => { ?attributes-list, ?afterwards-clause }
    { ?afterwards-clause } => { ?afterwards-clause }
 

@@ -1,3 +1,0 @@
-[submodule "ext/dynamic-binding"]
-	path = ext/dynamic-binding
-	url = git://github.com/dylan-lang/dynamic-binding.git
