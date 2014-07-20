@@ -211,7 +211,7 @@ define thread variable *baz-present?* :: <boolean> = #f;
 
 define parser foo
   rule many(baz);
-dynamic-bind
+dynamically-bind
   *baz-count* :: <integer> = 0,
   *baz-present?* :: <boolean> = #t;
 end parser;
@@ -224,7 +224,7 @@ bindings will revert to their previous values (in this case, ``-1`` and
 ``#f``). Dynamically-bound attributes are implemented using the
 `::dynamic-bind` macro from the `::threads` [qv] module.
 
-The dynamic-bind clause is in effect during all called parsers, in slot
+The dynamically-bind clause is in effect during all called parsers, in slot
 initialization expressions, in yield expressions, and in afterwards and cleanup
 clauses. It is not in effect during label evaluation. Binding initialization
 expressions may refer to dynamic bindings defined earlier in the clause.
@@ -525,7 +525,9 @@ body-clauses:
 
 // Optional attributes clause, then the afterwards/cleanup clauses.
 attributes-clause:
-   { dynamic-bind ?attributes-list; ?afterwards-clause }
+   // BUGFIX: I'd like to use "dynamic-bind" here instead of "dynamically-bind",
+   // but the compiler apparently confuses it with the actual macro invocation.
+   { dynamically-bind ?attributes-list; ?afterwards-clause }
       => { ?attributes-list, ?afterwards-clause }
    { ?afterwards-clause } => { ?afterwards-clause }
 
