@@ -18,3 +18,14 @@ tree via dynamically-bound attributes. You can also define a context class to
 keep global information for later semantic processing.
 
 -- Dustin Voss
+
+
+--- Compilation ---
+
+Open Dylan currently has problems properly inferring types when compiling this
+library into another project. It reports numerous spurious errors. To avoid
+seeing these, pipe the compilation of libraries that 'use' [em] this library
+through "egrep" [i] as follows:
+
+| BASH: dylan-compiler ... 2>&1 | egrep -v '^$|^ |^[[:digit:]]|<parse-failure>|<parse-extent>'
+| CSH:  dylan-compiler ... |& egrep -v '^$|^ |^[[:digit:]]|<parse-failure>|<parse-extent>'
