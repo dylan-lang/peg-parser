@@ -203,7 +203,7 @@ end parser;
 The parse context is the global parsing state. You can subclass it and add
 slots to represent additional state, but if you want to perform extra checking
 or something, you are better off using dynamically-bound attributes. All three
-forms allow a "dynamic-bind" clause.
+macro forms allow a "dynamically-bind" clause.
 
 [code]
 define thread variable *baz-count* :: <integer> = -1;
@@ -217,17 +217,18 @@ dynamically-bind
 end parser;
 [end code]
 
-The `*baz-count*` and `*baz-present?*` bound to ``0`` and ``#t`` respectively
-within the dynamic scope of `parse-foo`—that is, within all parsers called
-directly or indirectly by `parse-foo`. When `parse-foo` completes, those
-bindings will revert to their previous values (in this case, ``-1`` and
-``#f``). Dynamically-bound attributes are implemented using the
-`::dynamic-bind` macro from the `::threads` [qv] module.
+The `*baz-count*` and `*baz-present?*` variables are bound to ``0`` and ``#t``
+respectively within the dynamic scope of `parse-foo`—that is, within all
+parsers called directly or indirectly by `parse-foo`. When `parse-foo`
+completes, those bindings will revert to their previous values (in this case,
+``-1`` and ``#f``). Dynamically-bound attributes are implemented using the
+`dynamic-bind` macro from the `threads` module.
 
 The dynamically-bind clause is in effect during all called parsers, in slot
 initialization expressions, in yield expressions, and in afterwards and cleanup
-clauses. It is not in effect during label evaluation. Binding initialization
-expressions may refer to dynamic bindings defined earlier in the clause.
+clauses. It is not in effect during label evaluation. The initialization
+expressions in the clause may refer to dynamic bindings defined earlier in the
+clause.
 
 --- Afterwards and cleanup ---
 
